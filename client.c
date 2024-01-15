@@ -1,3 +1,5 @@
+#include "parameters.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -6,69 +8,50 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
 
-#define ID_LEN 3 //maximum id_len = 10
-#define USERNAME_LEN 10 // maximum username_len = 50
-
-struct login_msg {
+struct message {
     long mtype;
     int id;
-    char username[USERNAME_LEN + 1];
+    char username[USERNAME_LEN];
+    char* error_text;
 };
 
-int valid_id(char id_s[ID_LEN + 1]) {
-    int id = 0;
-    for(int i = 0; i < ID_LEN; i++) {
-        if(!isdigit(id_s[i])) {
-            printf("Invalid ID, try again\n %c \n", id_s[i]);
-            return 0;
-        }
-        id *= 10;
-        id += id_s[i] - '0';
-    }
-    printf("%d\n", id);
-    return id;
-}
-
-int send_login(int q_name) {
-    struct login_msg login;
+int send_login(int server_q) {
+    struct message login;
     login.mtype = 1;
-    char id_s[ID_LEN + 1];
+    login.id = getpid();
     bool done = 0;
-    int c;
-    while(!done) {
-        id_s[ID_LEN] = ' ';
-        printf("Provide ID (%d digits):\n", ID_LEN);
-        scanf("%4s", id_s);
-        while ((c = getchar()) != '\n');
-        if(strlen(id_s) < ID_LEN) {
-            printf("Invalid ID: too short, try again\n");
-            continue;
-        }
-        if(strlen(id_s) > ID_LEN) {
-            printf("Invalid ID: too long, try again\n");
-            continue;
-        }
-        login.id = valid_id(id_s);
-        if(!login.id) {
-            continue;
-        }
-        done = 1;
-    }
     printf("Provide username:\n");
-    scanf("%20s", (login.username));
-    while ((c = getchar()) != '\n');
-    if(strlen(login.username) > USERNAME_LEN) {
-        printf("Invalid login: too long, try again\n");
-        return 1;
+    char* unchecked_username = (char*)malloc(50); //free?
+    scanf("%50s", unchecked_username);
+    printf("6");
+    
+    if(strlen(unchecked_username) > USERNAME_LEN) {
+        printf("Invalid login: too long, try again\n\n");
+        printf("0");
+        return 0;
+    } else {
+        strcpy(login.username, unchecked_username);
     }
-    msgsnd(q_name, &login, sizeof(struct login_msg) - sizeof(long), 0);
+    msgsnd(server_q, &login, sizeof(struct message) - sizeof(long), 0);
+    printf("5");
+    struct message response;
+    msgrcv(server_q, &response, sizeof(struct message) - sizeof(long), 0, 0);
+    if(response.mtype == 2) {
+        printf("%s\n", response.error_text);
+        printf("1");
+        return 0;
+    }
+    printf("3");
     return login.id;
 }
 
 int main() {
-    int server_q = 0;
-    int own_q = send_login(server_q);
-
+    int server_q = msgget(SERVER_KEY, IPC_CREAT | 0666); // czy klient powinien tworzyć czy tu ma być błont, czy ma czekać czy co?
+    int client_q = 0;
+    while(!client_q) {
+        client_q = send_login(server_q);
+    }
     return 0;
 }

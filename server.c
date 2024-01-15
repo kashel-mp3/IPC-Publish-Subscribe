@@ -1,3 +1,5 @@
+#include "parameters.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -5,55 +7,144 @@
 #include <string.h>
 #include <sys/msg.h>
 
-#define MAX_CLIENTS 100
-
 struct message {
     long mtype;
     int id;
-    char username[50];
+    char username[USERNAME_LEN];
+    char* error_text;
 };
 
 struct Client {
     int id;
-    char username[50];
+    char username[USERNAME_LEN];
+    struct Client* prev;
+    struct Client* next;
 };
 
-int calculate_index(int clientID) {
-    return clientID % MAX_CLIENTS;
+struct LinkedList {
+    struct Client* head;
+    struct Client* tail;
+};
+
+struct Client* create_client(int id, const char* username) {
+    struct Client* new_client = (struct Client*)malloc(sizeof(struct Client));
+    new_client->id = id;
+    snprintf(new_client->username, sizeof(new_client->username), "%s", username); //?
+    new_client->prev = NULL;
+    new_client->next = NULL;
+    return new_client;
 }
 
-void print_client(struct Client* clients, int id) {
-    int index = calculate_index(id);
-    printf("ID: %d, Username: %s\n", clients[index].id, clients[index].username);
+struct LinkedList* create_linked_list() {
+    struct LinkedList* new_list = (struct LinkedList*)malloc(sizeof(struct LinkedList));
+    new_list->head = NULL;
+    new_list->tail = NULL;
+    return new_list;
 }
 
-void print_clients(struct Client* clients) {
-    // Iterate through the user array and print each user
-    for (int i = 0; i < MAX_CLIENTS; ++i) {
-        if (clients[i].id != 0) {  // Check if the slot is occupied
-            printf("ID: %d, Username: %s\n", clients[i].id, clients[i].username);
+struct Client* find_client_by_username(struct LinkedList* list, const char* username) {
+    struct Client* current = list->head;
+    
+    while(current) {
+        if(current->username == username) {
+            return current;
         }
+        current = current->next;
+    }
+    
+    return NULL;
+}
+
+struct Client* find_client_by_id(struct LinkedList* list, int id) {
+    struct Client* current = list->head;
+    
+    while(current) {
+        if(current->id == id) {
+            return current;
+        }
+        current = current->next;
+    }
+    
+    return NULL;
+}
+
+//returns: 1 - client not added / 0 - client added
+int add_client(struct LinkedList* list, int id, const char* username) {
+    if(find_client_by_username(list, username) != NULL) {
+        return 1;
+    }
+    struct Client* new_client = create_client(id, username);
+    if(list->head == NULL) {
+        list->head = new_client;
+        list->tail = new_client;
+    } else {
+        new_client->prev = list->tail;
+        list->tail->next = new_client;
+        list->tail = new_client;
+    }
+    return 0;
+}
+
+void delete_client(struct LinkedList* list, int id) {
+    struct Client* client = find_client_by_id(list, id);
+    if(client) {
+        if(client->next) {
+            client->next->prev = client->prev;
+        } else {
+            client->prev->next = NULL;
+            list->tail = client->prev;
+
+        }
+        if(client->prev) {
+            client->prev->next = client->next;
+        } else {
+            client->next->prev = NULL;
+            list->head = client->next;
+        }
+        free(client);
     }
 }
 
-void add_client(struct Client* clients, int id, const char* username) {
-    int index = calculate_index(id);
-    clients[index].id = id;
-    strncpy(clients[index].username, username, sizeof(clients[index].username));
+void print_linked_list(struct LinkedList* list) {
+    struct Client* current = list->head;
+
+    while (current != NULL) {
+        printf("ID: %d, Username: %s\n", current->id, current->username);
+        current = current->next;
+    }
 }
 
-int main() {
-    struct Client clients[MAX_CLIENTS];
+void free_linked_list(struct LinkedList* list) {
+    struct Client* current = list->head;
+    struct Client* next;
 
-    int key = 111;
-    int q_id = msgget(key, IPC_CREAT | 0666); 
+    while (current != NULL) {
+        next = current->next;
+        free(current);
+        current = next;
+    }
+
+    free(list);
+}
+
+
+int main() {
+    struct LinkedList* active_clients = create_linked_list();
+
+    int q_id = msgget(SERVER_KEY, IPC_CREAT | 0666); 
     while(1) {
-        struct message msg;
+        struct message msg, response;
         msgrcv(q_id, &msg, sizeof(struct message) - sizeof(long), 0, 0);
         switch (msg.mtype) {
         case 1:
-            add_client(clients, msg.id, msg.username);
-            print_client(clients, msg.id);
+            printf("%d, %s\n", msg.id, msg.username);
+            if(add_client(active_clients, msg.id, msg.username)) {
+                response.mtype = 0;
+            } else {
+                response.mtype = 2;
+                response.error_text = "username taken lul";
+            }
+            msgsnd(msg.id, &response, sizeof(struct message) - sizeof(long), 0);
             break;
         }
     }

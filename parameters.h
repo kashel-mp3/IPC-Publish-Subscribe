@@ -1,0 +1,3 @@
+#define USERNAME_LEN 10 
+#define MAX_CLIENTS 100
+#define SERVER_KEY 2137
