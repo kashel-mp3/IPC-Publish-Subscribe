@@ -48,7 +48,7 @@ int send_login(int client_q , int server_q) {
     return 0;
 }
 
-int send_subscription_request(int client_q , int server_q) {
+int subscribe(int client_q , int server_q) {
     struct message subscribtion;
     subscribtion.mtype = CR_ADD_SUB;
     //geta and print all the subscriptinos from server
@@ -110,6 +110,6 @@ int main() {
 
     while(send_login(client_q, server_q)) {};
     while(create_topic(client_q, server_q)) {};
-
+    while(subscribe(client_q, server_q)) {};
     return 0;
 }

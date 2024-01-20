@@ -7,17 +7,6 @@
 #include <string.h>
 #include <sys/msg.h>
 
-struct message {
-    long mtype;
-    int id;
-    int cnt;
-    char username[USERNAME_LEN];
-    char topicname[TOPIC_LEN];
-    int sub_duration;
-    char sub_topic[20];
-    char error_text[100];
-};
-
 struct Client {
     int id;
     char username[USERNAME_LEN];
@@ -28,6 +17,66 @@ struct Client {
 struct ClientLinkedList {
     struct Client* head;
     struct Client* tail;
+};
+
+struct Sub {
+    int cnt;
+    struct Client* client;
+    struct Sub* prev;
+    struct Sub* next;
+};
+
+struct SubsLinkedList {
+    struct Sub* head;
+    struct Sub* tail;
+};
+
+struct Topic {
+    int id;
+    char name[TOPIC_LEN];
+    struct SubsLinkedList* subscribers;
+    struct Topic* prev;
+    struct Topic* next;
+};
+
+struct TopicLinkedList {
+    struct Topic* head;
+    struct Topic* tail;
+};
+
+struct Client* create_client(int id, const char* username);
+struct ClientLinkedList* client_linked_list();
+struct Client* find_client_by_username(struct ClientLinkedList* list, const char* username);
+struct Client* find_client_by_id(struct ClientLinkedList* list, int id);
+int add_client(struct ClientLinkedList* list, int id, const char* username);
+void delete_client(struct ClientLinkedList* list, int id);
+void print_linked_list(struct ClientLinkedList* list);
+void free_client_linked_list(struct ClientLinkedList* list);
+
+struct Sub* create_sub(int cnt, int id, struct ClientLinkedList* list);
+struct SubsLinkedList* subs_linked_list();
+struct Sub* find_sub_by_client_id(struct SubsLinkedList* list, struct ClientLinkedList* client_list, int id);
+int add_modify_sub(struct TopicLinkedList* topic_list, const char* name, struct ClientLinkedList* client_list, int cnt, int id);
+void delete_sub(struct TopicLinkedList* topic_list, const char* name, struct ClientLinkedList* client_list, int id);
+void free_subs_linked_list(struct SubsLinkedList* list);
+
+struct Topic* create_topic(int id, const char* name, struct TopicLinkedList* topic_list, struct ClientLinkedList* client_list);
+struct TopicLinkedList* topic_linked_list();
+struct Topic* find_topic_by_name(struct TopicLinkedList* list, const char* name);
+struct Topic* find_topic_by_id(struct TopicLinkedList* list, int id);
+int add_topic(struct TopicLinkedList* topic_list, const char* name, struct ClientLinkedList* client_list, int client_id); 
+void delete_topic(struct TopicLinkedList* list, const char* name);
+void free_topic_linked_list(struct TopicLinkedList* list);
+
+struct message {
+    long mtype;
+    int id;
+    int cnt;
+    char username[USERNAME_LEN];
+    char topicname[TOPIC_LEN];
+    int sub_duration;
+    char sub_topic[20];
+    char error_text[100];
 };
 
 struct Client* create_client(int id, const char* username) {
@@ -131,31 +180,6 @@ void free_client_linked_list(struct ClientLinkedList* list) {
     free(list);
 }
 
-struct Sub {
-    int cnt;
-    struct Client* client;
-    struct Sub* prev;
-    struct Sub* next;
-};
-
-struct SubsLinkedList {
-    struct Sub* head;
-    struct Sub* tail;
-};
-
-struct Topic {
-    int id;
-    char name[TOPIC_LEN];
-    struct SubsLinkedList* subscribers;
-    struct Topic* prev;
-    struct Topic* next;
-};
-
-struct TopicLinkedList {
-    struct Topic* head;
-    struct Topic* tail;
-};
-
 struct Sub* create_sub(int cnt, int id, struct ClientLinkedList* list) {
     struct Sub* new_sub = (struct Sub*)malloc(sizeof(struct Sub));
     struct Client* client = find_client_by_id(list, id);
@@ -166,10 +190,11 @@ struct Sub* create_sub(int cnt, int id, struct ClientLinkedList* list) {
     return new_sub;
 }
 
-struct SubsLinkedList* subs_linked_list() {
+struct SubsLinkedList* subs_linked_list(int id, struct ClientLinkedList* client_list) {
     struct SubsLinkedList* new_list = (struct SubsLinkedList*)malloc(sizeof(struct SubsLinkedList));
-    new_list->head = NULL;
-    new_list->tail = NULL;
+    struct Sub* new_sub = create_sub(0, id, client_list);
+    new_list->head = new_sub;
+    new_list->tail = new_sub;
     return new_list;
 }
 
@@ -190,7 +215,7 @@ int add_modify_sub(struct TopicLinkedList* topic_list, const char* name, struct 
     struct SubsLinkedList* subs_list =  topic->subscribers;
     struct Sub* new_sub = find_sub_by_client_id(subs_list, client_list, id); // tak mogę? 
     if(new_sub == NULL) {
-        new_sub = create_sub(cnt, id, subs_list);
+        new_sub = create_sub(cnt, id, client_list);
         if(new_sub) {
             return 1;
         }
@@ -266,12 +291,17 @@ void free_subs_linked_list(struct SubsLinkedList* list) {
     free(list);
 }
 
-struct Topic* create_topic(int id, const char* name, struct TopicLinkedList* topic_list) {
+struct Topic* create_topic(int id, const char* name, struct TopicLinkedList* topic_list, struct ClientLinkedList* client_list) {
     struct Topic* new_topic = (struct Topic*)malloc(sizeof(struct Topic));
-    struct SubsLinkedList* subs_list = subs_linked_list(id);
-    new_topic->id = topic_list->tail->id + 1;
+    struct SubsLinkedList* subs_list = subs_linked_list(id, client_list);
+    if(!topic_list->tail) {
+        new_topic->id = 0;
+    } else {
+        new_topic->id = topic_list->tail->id + 1;
+    }
     snprintf(new_topic->name, sizeof(new_topic->name), "%s", name); //?
     new_topic->subscribers = subs_list;
+    //printf("%s\n", subs_list->head->client->username);
     new_topic->prev = NULL;
     new_topic->next = NULL;
     return new_topic;
@@ -312,18 +342,18 @@ struct Topic* find_topic_by_id(struct TopicLinkedList* list, int id) {
 }
 
 
-int add_topic(struct TopicLinkedList* list, const char* name, int client_id) {
-    if(find_topic_by_name(list, name) != NULL) {
+int add_topic(struct TopicLinkedList* topic_list, const char* name, struct ClientLinkedList* client_list, int client_id) {
+    if(find_topic_by_name(topic_list, name) != NULL) {
         return 1;
     }
-    struct Topic* new_topic = create_topic(client_id, name, list);
-    if(list->head == NULL) {
-        list->head = new_topic;
-        list->tail = new_topic;
+    struct Topic* new_topic = create_topic(client_id, name, topic_list, client_list);
+    if(topic_list->head == NULL) {
+        topic_list->head = new_topic;
+        topic_list->tail = new_topic;
     } else {
-        new_topic->prev = list->tail;
-        list->tail->next = new_topic;
-        list->tail = new_topic;
+        new_topic->prev = topic_list->tail;
+        topic_list->tail->next = new_topic;
+        topic_list->tail = new_topic;
     }
     return 0;
 }
@@ -339,6 +369,26 @@ void free_topic_linked_list(struct TopicLinkedList* list) {
     }
 
     free(list);
+}
+
+void printTopicsAndSubscribers(struct TopicLinkedList* topics) {
+    struct Topic* currentTopic = topics->head;
+
+    while (currentTopic != NULL) {
+        printf("%s:", currentTopic->name);
+
+        // Print subscribers' usernames
+        struct Sub* currentSubscriber = currentTopic->subscribers->head;
+
+        while (currentSubscriber != NULL) {
+            printf(" %s", currentSubscriber->client->username);
+            currentSubscriber = currentSubscriber->next;
+        }
+
+        printf("\n");
+
+        currentTopic = currentTopic->next;
+    }
 }
 
 int main() {
@@ -361,11 +411,12 @@ int main() {
                 }
                 break;
             case CR_CREAT_TOPIC:
-                if(!add_topic(active_topics, msg.topicname, msg.id)) {
+                if(!add_topic(active_topics, msg.topicname, active_clients, msg.id)) {
                     response.mtype = SR_OK;
                 } else {
                     strcpy(response.error_text, "topicname taken lul");
                 }
+                printTopicsAndSubscribers(active_topics);
                 break;
             case CR_ADD_SUB:
                 if(!add_modify_sub(active_topics, msg.topicname, active_clients, msg.cnt, msg.id)) {
