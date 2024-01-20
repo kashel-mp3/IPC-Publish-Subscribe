@@ -17,8 +17,7 @@ int messageSend(int queueId, struct message* msg){
     return msgsnd(queueId, msg, sizeof(struct message) - sizeof(long), 0);
 }
 
-struct message* messageReceive(int queueId){
-    struct message* msg = (struct message*) malloc(sizeof(struct  message));
+struct message* messageReceive(int queueId, struct message* msg, long mtype){
     msgrcv(queueId, msg, sizeof(struct message) - sizeof(long), 0, 0);
     return msg;
 }
@@ -44,7 +43,7 @@ int send_login(int client_q , int server_q) {
 
     msgrcv(client_q, &response, sizeof(struct message) - sizeof(long), 0, 0);
     if(response.mtype == SR_ERR) {
-        printf("%s\n", response.error_text);
+        printf("%s\n", response.text);
         return 1;
     }
     return 0;
@@ -89,7 +88,7 @@ int subscribe(int client_q , int server_q) {
     struct message response;
     msgrcv(client_q, &response, sizeof(struct message) - sizeof(long), 0, 0);
     if(response.mtype == SR_ERR) {
-        printf("%s\n", response.error_text);
+        printf("%s\n", response.text);
         return 1;
     }
     return 0;
@@ -117,14 +116,17 @@ int create_topic(int client_q , int server_q) {
     struct message response;
     msgrcv(client_q, &response, sizeof(struct message) - sizeof(long), 0, 0);
     if(response.mtype == SR_ERR) {
-        printf("%s\n", response.error_text);
+        printf("%s\n", response.text);
         return 1;
     }
     return 0;
 }
 
 int send_message(int server_q, int client_q , char* text) {
-
+    struct message textMessage;
+    textMessage.mtype = CR_TEXTMSG;
+    strcpy(textMessage.text, text);
+    return messageSend(server_q, &textMessage);
 }
 
 int block_user(int server_q, int client_q, char* username) {
@@ -132,7 +134,8 @@ int block_user(int server_q, int client_q, char* username) {
     muteMessage.mtype = CR_MUTE;
     strcpy(muteMessage.username, username);
     messageSend(server_q, &muteMessage);
-
+    messageReceive(client_q, &muteMessage, CR_MUTE);
+    return muteMessage.id == SR_ERR;
 }
 
 int main() {

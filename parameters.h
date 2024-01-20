@@ -7,8 +7,10 @@
 #define SERVER_KEY 2137
 #define SR_OK 21
 #define SR_ERR 22
+#define SR_TEXTMSG 23
 #define CR_LOGIN 11
 #define CR_CREAT_TOPIC 12
 #define CR_REQ_TOPIC 13
 #define CR_ADD_SUB 14
 #define CR_MUTE 15
+#define CR_TEXTMSG 16

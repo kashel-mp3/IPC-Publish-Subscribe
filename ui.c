@@ -87,14 +87,6 @@ int isAlnumOnly(char* text, int maxLen){
     return 0;
 }
 
-struct threadData{
-    char inputBuffer[MAX_MESSAGE_LENGTH + 1];
-    int bufferPos;
-    pthread_mutex_t inputLock;
-    pthread_mutex_t bufferReadLock;
-    int inputReady;
-};
-
 struct threadData* createThreadData(){
     struct threadData* newThread = (struct threadData*) malloc(sizeof(struct threadData));
     pthread_mutex_init(&(newThread->inputLock), NULL);

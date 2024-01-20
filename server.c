@@ -77,7 +77,7 @@ struct message {
     char topic_id;
     int sub_duration;
     char sub_topic[20];
-    char error_text[100];
+    char text[100];
     char topic_list[TOPIC_LEN*TOPIC_CNT];
 };
 
@@ -425,14 +425,14 @@ int main() {
         struct message msg, response;
         msgrcv(server_q, &msg, sizeof(struct message) - sizeof(long), 0, 0);
         response.mtype = SR_ERR;
-        strcpy(response.error_text, "sth wronk :^(");
+        strcpy(response.text, "sth wronk :^(");
         switch (msg.mtype) {
             case CR_LOGIN:
                 if(!add_client(active_clients, msg.id, msg.username)) {
                     //printf("%d, %s\n", msg.id, msg.username);
                     response.mtype = SR_OK;
                 } else {
-                    strcpy(response.error_text, "username taken lul");
+                    strcpy(response.text, "username taken lul");
                 }
                 break;
             case CR_CREAT_TOPIC:
@@ -440,7 +440,7 @@ int main() {
                     no_of_topics++;
                     response.mtype = SR_OK;
                 } else {
-                    strcpy(response.error_text, "topicname taken lul");
+                    strcpy(response.text, "topicname taken lul");
                 }
                 printTopicsAndSubscribers(active_topics);
                 break;
@@ -453,7 +453,7 @@ int main() {
                     snprintf(response.topic_list, sizeof(response.topic_list), "%s", topics_string);\
                     free(topics_string);
                 } else {
-                    strcpy(response.error_text, "Memory allocation error for topic_list");
+                    strcpy(response.text, "Memory allocation error for topic_list");
                     response.mtype = SR_ERR;
                 }
                 break;
@@ -462,9 +462,21 @@ int main() {
                 if(!add_modify_sub(active_topics, topic->name, active_clients, msg.cnt, msg.id)) {
                     response.mtype = SR_OK;
                 } else {
-                    strcpy(response.error_text, "nwm co poszło nie tak lul");
+                    strcpy(response.text, "nwm co poszło nie tak lul");
                 }
                 printTopicsAndSubscribers(active_topics);
+                break;
+            case CR_TEXTMSG:
+                struct Topic* topic1 = find_topic_by_name(active_topics, msg.topicname);
+                struct Sub* sub = topic1->subscribers->head;
+                strcmp(response.text, msg.text);
+                response.mtype = SR_TEXTMSG;
+                response.id = SR_OK;
+                while(sub != topic1->subscribers->tail){
+                    if(!strcmp(sub->client->username, msg.username)){
+                        msgsnd(sub->client->id, &response, sizeof(struct message) - sizeof(long), 0);
+                    }
+                } // zakładamy, że osoba pisząca wiadomość odbiera ją w sposób synchroniczny (czeka na odpowiedź od serwera zanim dalej klient działa) oraz typ tej wiadomości jest taki sam jak zapytania CR_TEXTMSG, podczas gdy wiadomości od innych użytkowników są wysyłane z typem SR_TEXTMSG i klienci odbierają je w sposób asynchroniczny
                 break;
         }
         msgsnd(msg.id, &response, sizeof(struct message) - sizeof(long), 0);

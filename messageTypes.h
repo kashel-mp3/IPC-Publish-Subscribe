@@ -11,6 +11,6 @@ struct message {
     char topic_id;
     int sub_duration;
     char sub_topic[20];
-    char error_text[100];
+    char text[100];
     char topic_list[TOPIC_LEN*TOPIC_CNT];
 };
