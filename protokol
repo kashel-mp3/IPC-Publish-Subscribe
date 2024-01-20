@@ -48,5 +48,18 @@ mutującym oraz procedura sprawdzenia czy id figuruje w liście zmutowanych prze
  ale wysyłana tylko do niego
 Klient ParseCommands(messageText) // jeżeli wykryje komendę, to się nią zajmie i zwróci np 1 albo -1, żeby zaznaczyć, że wiadomość została już handled
 Klient FindUserIdByNick(nick)
-Klient IdExists(id) //można zrobić reuse pod warunkiem, że zmutowani użytkownicy będą trzymani jako double linked lista wzkaźników do  tych użytkowników na serwerze (może być błąd jak nie oganriemy
-wyjebania ich ze wszystkich list przy usuwaniu użytownika z serwera)
+Klient IdExists(id) //można zrobić reuse pod warunkiem, że zmutowani użytkownicy będą trzymani jako double linked lista wzkaźników do  tych użytkowników na serwerze (może być błąd jak nie oganriemy 
+ich ze wszystkich list przy usuwaniu użytownika z serwera)
+
+
+ja bym zmienił trochę koncepcję, mianowicie wywalił ponowne logowanie whatsoever, i poleciał po prostu na dobrze napisanym kodzie, np dobre odzyskiwanie zasobów (do tego potrzebny będzie ping)
+1.napisać gui w terminalu(ekran logowania, ładnie, używająć escape sequences, na dole buffor, wykonywanie czynności komendami po "/" np edit subscbtions, mute, kontrola przez przechwytywarinie klawiszy
+buffor wewnętrzny, zmiana tematu na który piszemy poprzez /topic $topicname$, aktualny temat wyświetla się w na początku bufora np [$topicname$])
+2.Napisać procedurę logowania dla serwera i klienta, klient podaje wyłącznie nick, który musi być unikalny na serwerze (odmowa połączenia "taki nick już istnieje"), ID berzemy z PID
+
+3.Procedura zapisania się na temat jako klient (możliwość zapytania serwera o listę wszystkich/zasubskrybowanych (ew możemy jakoś oznaczać te, na które ktoś jest zapisany żeby było widać) wyszystko przez komendę)
+4.Procedura odsubskrybowania tematu.
+5.Procedura utworzenia nowego tematu /requestTopic $topicname$ (odmowa jeżeli istnieje ("taki temat już istnieje"))
+6.Procedura wysyłania wiadomości do serwera, serwer rozgłasza wiadomość do użytkowników subskrybujących dany temat oraz powiadamia użytkownika o wygaśnięciu jego subskrybcji tymczasowej
+7.Procedura parsowania koment z tekstu wiadomości i przetwarzania ich lub pomijania, jeżeli nie potrzeba przetwarzania i normalnego wysyłania (coś typu czy jest komenda, jeżeli tak to parsuj ją, jeżeli nie to wyślij wiadomość)
+8.Procedura wysyłania pakietu mutującego i procedura handlowania muta po stronie serwera.
