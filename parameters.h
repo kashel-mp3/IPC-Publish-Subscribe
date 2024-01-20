@@ -1,3 +1,5 @@
+#pragma once
+
 #define USERNAME_LEN 10 
 #define TOPIC_LEN 30
 #define TOPIC_CNT 20
@@ -9,3 +11,4 @@
 #define CR_CREAT_TOPIC 12
 #define CR_REQ_TOPIC 13
 #define CR_ADD_SUB 14
+#define CR_MUTE 15

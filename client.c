@@ -10,18 +10,18 @@
 #include <ctype.h>
 #include <unistd.h>
 
-struct message {
-    long mtype;
-    int id;
-    int cnt;
-    char username[USERNAME_LEN];
-    char topicname[TOPIC_LEN];
-    char topic_id;
-    int sub_duration;
-    char sub_topic[20];
-    char error_text[100];
-    char topic_list[TOPIC_LEN*TOPIC_CNT];
-};
+#include "messageTypes.h"
+#include "ui.h"
+
+int messageSend(int queueId, struct message* msg){
+    return msgsnd(queueId, msg, sizeof(struct message) - sizeof(long), 0);
+}
+
+struct message* messageReceive(int queueId){
+    struct message* msg = (struct message*) malloc(sizeof(struct  message));
+    msgrcv(queueId, msg, sizeof(struct message) - sizeof(long), 0, 0);
+    return msg;
+}
 
 int send_login(int client_q , int server_q) {
     struct message login;
@@ -123,20 +123,77 @@ int create_topic(int client_q , int server_q) {
     return 0;
 }
 
-int send_message(int client_q , int server_q) {
-    //
+int send_message(int server_q, int client_q , char* text) {
+
 }
 
-int block_user(int client_q , int server_q) {
-    //
+int block_user(int server_q, int client_q, char* username) {
+    struct message muteMessage;
+    muteMessage.mtype = CR_MUTE;
+    strcpy(muteMessage.username, username);
+    messageSend(server_q, &muteMessage);
+
 }
 
 int main() {
     int server_q = msgget(SERVER_KEY, IPC_CREAT | 0666); // czy klient powinien tworzyć czy tu ma być błont, czy ma czekać czy co?
     int client_q = msgget(getpid(), IPC_CREAT | 0666);
-
     while(send_login(client_q, server_q)) {};
-    while(create_topic(client_q, server_q)) {};
-    while(subscribe(client_q, server_q)) {};
+
+    char* topic = (char*) malloc(sizeof(char) * MAX_TOPIC_LENGTH);
+    struct messageLogBuffer* messageLogBuffer = createMessageLogBuffer();
+    struct threadData* data = createThreadData();
+    pthread_t inputThreadId;
+
+
+    setNonBlockingMode();
+    setvbuf(stdout, NULL, _IONBF, 0);
+    strcpy(topic, "RANDOM"); // default topic;
+
+    if(pthread_create(&inputThreadId, NULL, inputThreadFunction, (void*) data) != 0){
+        perror("Failed to create input thread");
+        exit(EXIT_FAILURE);
+    }
+
+    while (1) {
+        displayUI(messageLogBuffer, data, topic);
+
+        //TODO incoming messages handling
+
+        if(data->inputReady){
+            if (data->inputBuffer[0] == '/') {
+                if(strncmp(data->inputBuffer, "/topic ", 7) == 0){
+                    int argLen = strlen(data->inputBuffer + 7);
+                    if(argLen == 0){
+                        //TODO missing argument
+                    }
+                    else if(argLen > MAX_TOPIC_LENGTH){
+                        //TODO topic too long
+                    }
+                    else if(isAlnumOnly(data->inputBuffer + 7, argLen)){
+                        //TODO invalid argument !ALNUM
+                    }
+                    else{
+                        topic = strcpy(topic, data->inputBuffer + 7);
+                    }
+                }
+                else{
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "Invalid command "));
+                }
+            } 
+            else {
+                addMessageToBuffer(messageLogBuffer, createMessageEntry(topic, data->inputBuffer));
+                // TODO send message to server (nawet zamiast tego dodania do koeljki)
+            }
+            data->inputReady = 0;
+            pthread_mutex_unlock(&data->inputLock);
+            //printf("input unlocked\n");
+        }
+        usleep(100000);
+    }
+
+    deleteThreadData(data);
+    resetNonBlockingMode();
+
     return 0;
 }

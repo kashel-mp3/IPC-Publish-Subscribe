@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/msg.h>
 
 #define MAX_MESSAGES 10
 #define MAX_MESSAGE_LENGTH 100
@@ -58,6 +59,14 @@ void deleteMessageLogBuffer(struct messageLogBuffer* MLB){
 
 void clearScreen() {
     printf("\033[H\033[J");
+}
+
+void clearLines(int numLines) {
+    printf("\033[H");
+
+    for (int i = 0; i < numLines; ++i) {
+        printf("\033[K\n");
+    }
 }
 
 void moveCursor(int row, int col) {
@@ -175,26 +184,27 @@ void displayUI(struct messageLogBuffer* MLB, struct threadData* data, char* topi
     pthread_mutex_unlock(&data->bufferReadLock);
 }
 
+
+
 int main() {
     char* topic = (char*) malloc(sizeof(char) * MAX_TOPIC_LENGTH);
     struct messageLogBuffer* messageLogBuffer = createMessageLogBuffer();
-
     struct threadData* data = createThreadData();
     pthread_t inputThreadId;
 
+
     setNonBlockingMode();
     setvbuf(stdout, NULL, _IONBF, 0);
+    strcpy(topic, "RANDOM"); // default topic;
 
     if(pthread_create(&inputThreadId, NULL, inputThreadFunction, (void*) data) != 0){
         perror("Failed to create input thread");
         exit(EXIT_FAILURE);
     }
 
-    strcpy(topic, "RANDOM"); // default topic;
-
     while (1) {
         displayUI(messageLogBuffer, data, topic);
-        
+
         //TODO incoming messages handling
 
         if(data->inputReady){
@@ -213,14 +223,14 @@ int main() {
                     else{
                         topic = strcpy(topic, data->inputBuffer + 7);
                     }
-                    //if(topic[argLen - 1] == '\n') topic[argLen - 1] = '\0';
                 }
                 else{
-
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "Invalid command "));
                 }
             } 
             else {
                 addMessageToBuffer(messageLogBuffer, createMessageEntry(topic, data->inputBuffer));
+                // TODO send message to server (nawet zamiast tego dodania do koeljki)
             }
             data->inputReady = 0;
             pthread_mutex_unlock(&data->inputLock);
