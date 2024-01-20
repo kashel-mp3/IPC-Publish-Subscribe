@@ -74,9 +74,11 @@ struct message {
     int cnt;
     char username[USERNAME_LEN];
     char topicname[TOPIC_LEN];
+    char topic_id;
     int sub_duration;
     char sub_topic[20];
     char error_text[100];
+    char topic_list[TOPIC_LEN*TOPIC_CNT];
 };
 
 struct Client* create_client(int id, const char* username) {
@@ -371,13 +373,34 @@ void free_topic_linked_list(struct TopicLinkedList* list) {
     free(list);
 }
 
+char* topics_to_string(struct TopicLinkedList* topics) {
+    int total_length = 0;
+    struct Topic* current_topic = topics->head;
+
+    while (current_topic != NULL) {
+        total_length += snprintf(NULL, 0, "%d. %s\n", current_topic->id, current_topic->name);
+        current_topic = current_topic->next;
+    }
+
+    char* result = (char*)malloc(total_length + 1);
+
+    char* current_position = result;
+    current_topic = topics->head;
+
+    while (current_topic != NULL) {
+        current_position += snprintf(current_position, total_length + 1, "%d. %s\n", current_topic->id, current_topic->name);
+        current_topic = current_topic->next;
+    }
+
+    return result;
+}
+
+
 void printTopicsAndSubscribers(struct TopicLinkedList* topics) {
     struct Topic* currentTopic = topics->head;
 
     while (currentTopic != NULL) {
         printf("%s:", currentTopic->name);
-
-        // Print subscribers' usernames
         struct Sub* currentSubscriber = currentTopic->subscribers->head;
 
         while (currentSubscriber != NULL) {
@@ -394,6 +417,8 @@ void printTopicsAndSubscribers(struct TopicLinkedList* topics) {
 int main() {
     struct ClientLinkedList* active_clients = client_linked_list();
     struct TopicLinkedList* active_topics = topic_linked_list();
+
+    int no_of_topics = 0;
 
     int server_q = msgget(SERVER_KEY, IPC_CREAT | 0666); 
     while(1) {
@@ -412,18 +437,34 @@ int main() {
                 break;
             case CR_CREAT_TOPIC:
                 if(!add_topic(active_topics, msg.topicname, active_clients, msg.id)) {
+                    no_of_topics++;
                     response.mtype = SR_OK;
                 } else {
                     strcpy(response.error_text, "topicname taken lul");
                 }
                 printTopicsAndSubscribers(active_topics);
                 break;
+            case CR_REQ_TOPIC:
+                response.topic_list[0] = '\0';
+                response.cnt = no_of_topics;
+                char* topics_string = topics_to_string(active_topics);
+                if (topics_string != NULL) {
+                    response.mtype = SR_OK;
+                    snprintf(response.topic_list, sizeof(response.topic_list), "%s", topics_string);\
+                    free(topics_string);
+                } else {
+                    strcpy(response.error_text, "Memory allocation error for topic_list");
+                    response.mtype = SR_ERR;
+                }
+                break;
             case CR_ADD_SUB:
-                if(!add_modify_sub(active_topics, msg.topicname, active_clients, msg.cnt, msg.id)) {
+                struct Topic* topic = find_topic_by_id(active_topics, msg.topic_id);
+                if(!add_modify_sub(active_topics, topic->name, active_clients, msg.cnt, msg.id)) {
                     response.mtype = SR_OK;
                 } else {
-                    strcpy(response.error_text, "topicname taken lul");
+                    strcpy(response.error_text, "nwm co poszło nie tak lul");
                 }
+                printTopicsAndSubscribers(active_topics);
                 break;
         }
         msgsnd(msg.id, &response, sizeof(struct message) - sizeof(long), 0);

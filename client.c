@@ -16,9 +16,11 @@ struct message {
     int cnt;
     char username[USERNAME_LEN];
     char topicname[TOPIC_LEN];
+    char topic_id;
     int sub_duration;
     char sub_topic[20];
     char error_text[100];
+    char topic_list[TOPIC_LEN*TOPIC_CNT];
 };
 
 int send_login(int client_q , int server_q) {
@@ -49,19 +51,40 @@ int send_login(int client_q , int server_q) {
 }
 
 int subscribe(int client_q , int server_q) {
+    struct message topic_request, topic_reply;
+    topic_request.mtype = CR_REQ_TOPIC;
+    topic_request.id = client_q;
+    msgsnd(server_q, &topic_request, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &topic_reply, sizeof(struct message) - sizeof(long), 0, 0);
+
+    printf("Current topics:\n");
+    printf("%s\n", topic_reply.topic_list);
+
     struct message subscribtion;
     subscribtion.mtype = CR_ADD_SUB;
-    //geta and print all the subscriptinos from server
-    printf("to which topisc would you like to subscribe?\n");
-    char* unchecked_name = (char*)malloc(50); //free?
-    scanf("%s", unchecked_name);
-    
-    if(strlen(unchecked_name) > TOPIC_LEN) {
-        printf("Invalid topic name: too long, try again\n\n");
+    subscribtion.id = client_q;
+    printf("to which topic would you like to subscribe? [type its idex]\n");
+    int topic_id;
+    scanf("%d", &topic_id);
+    if(topic_id < 0 && topic_reply.cnt <= topic_id) {
+        printf("topic of this index does not exist\n\n");
         return 1;
-    } else {
-        strcpy(subscribtion.topicname, unchecked_name);
     }
+    subscribtion.topic_id = topic_id;
+
+    int topic_cnt;
+    bool done = 0;
+    while(!done) {
+        printf("indef (0), number of messeges (n>0)\n");
+        scanf("%d", &topic_id);
+        if(topic_cnt < 0) {
+            printf("has to be a positive number\n\n");
+            continue;
+        }
+        done = 1;
+    }
+    subscribtion.cnt = topic_cnt; 
+
     msgsnd(server_q, &subscribtion, sizeof(struct message) - sizeof(long), 0);
     struct message response;
     msgrcv(client_q, &response, sizeof(struct message) - sizeof(long), 0, 0);
@@ -69,6 +92,10 @@ int subscribe(int client_q , int server_q) {
         printf("%s\n", response.error_text);
         return 1;
     }
+    return 0;
+}
+
+int modify_subscription(int client_q , int server_q) {
     return 0;
 }
 
