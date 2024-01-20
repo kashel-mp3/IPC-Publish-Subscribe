@@ -65,7 +65,6 @@ void moveCursor(int row, int col) {
 }
 
 int displayMessages(struct messageLogBuffer* MLB) {
-    clearScreen();
     int nMessages = 0;
     int offset = MLB->writePos;
     struct messageEntry* entry;
@@ -165,11 +164,20 @@ void resetNonBlockingMode(){
     tcsetattr(STDIN_FILENO, TCSANOW, &ttystate);
 }
 
+void displayUI(struct messageLogBuffer* MLB, struct threadData* data, char* topic){
+    clearScreen();
+    printf("Connected to LOCALHOST as GUEST\n");
+    int offset = displayMessages(MLB);
+    pthread_mutex_lock(&data->bufferReadLock);
+    moveCursor(offset + 2, 0);
+    printf("%s >> %s", topic, data->inputBuffer);
+    fflush(stdin);
+    pthread_mutex_unlock(&data->bufferReadLock);
+}
 
 int main() {
     char* topic = (char*) malloc(sizeof(char) * MAX_TOPIC_LENGTH);
     struct messageLogBuffer* messageLogBuffer = createMessageLogBuffer();
-    int numMessages = 0;
 
     struct threadData* data = createThreadData();
     pthread_t inputThreadId;
@@ -185,14 +193,9 @@ int main() {
     strcpy(topic, "RANDOM"); // default topic;
 
     while (1) {
+        displayUI(messageLogBuffer, data, topic);
         
-        numMessages = displayMessages(messageLogBuffer);
-        pthread_mutex_lock(&data->bufferReadLock);
-        moveCursor(numMessages + 1, 0);
-        printf("%s >> %s", topic, data->inputBuffer);
-        fflush(stdin);
-        pthread_mutex_unlock(&data->bufferReadLock);
-        
+        //TODO incoming messages handling
 
         if(data->inputReady){
             if (data->inputBuffer[0] == '/') {
@@ -211,6 +214,9 @@ int main() {
                         topic = strcpy(topic, data->inputBuffer + 7);
                     }
                     //if(topic[argLen - 1] == '\n') topic[argLen - 1] = '\0';
+                }
+                else{
+
                 }
             } 
             else {
