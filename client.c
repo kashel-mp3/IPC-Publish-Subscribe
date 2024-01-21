@@ -22,109 +22,64 @@ struct message* messageReceive(int queueId, struct message* msg, long mtype){
     return msg;
 }
 
-int send_login(int client_q , int server_q) {
-    struct message login;
-    login.mtype = CR_LOGIN;
-    login.id = client_q;
-    bool done = 0;
-    printf("Provide username:\n");
-    char* unchecked_username = (char*)malloc(50); //free?
-    scanf("%s", unchecked_username);
-    
-    if(strlen(unchecked_username) > USERNAME_LEN) {
-        printf("Invalid login: too long, try again\n\n");
-        return 1;
-    } else {
-        strcpy(login.username, unchecked_username);
-    }
-
-    msgsnd(server_q, &login, sizeof(struct message) - sizeof(long), 0);
-    struct message response;
-
-    msgrcv(client_q, &response, sizeof(struct message) - sizeof(long), 0, 0);
-    if(response.mtype == SR_ERR) {
-        printf("%s\n", response.text);
-        return 1;
-    }
-    return 0;
+int send_login(int client_q , int server_q, const char* username) {
+    struct message loginMessage;
+    loginMessage.mtype = CR_LOGIN;
+    loginMessage.id = client_q;
+    strcpy(loginMessage.username, username);
+    msgsnd(server_q, &loginMessage, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &loginMessage, sizeof(struct message) - sizeof(long), CR_LOGIN, 0);
+    return loginMessage.id == SR_ERR;
 }
 
-int subscribe(int client_q , int server_q) {
-    struct message topic_request, topic_reply;
-    topic_request.mtype = CR_REQ_TOPIC;
-    topic_request.id = client_q;
-    msgsnd(server_q, &topic_request, sizeof(struct message) - sizeof(long), 0);
-    msgrcv(client_q, &topic_reply, sizeof(struct message) - sizeof(long), 0, 0);
-
-    printf("Current topics:\n");
-    printf("%s\n", topic_reply.topic_list);
-
-    struct message subscribtion;
-    subscribtion.mtype = CR_ADD_SUB;
-    subscribtion.id = client_q;
-    printf("to which topic would you like to subscribe? [type its idex]\n");
-    int topic_id;
-    scanf("%d", &topic_id);
-    if(topic_id < 0 && topic_reply.cnt <= topic_id) {
-        printf("topic of this index does not exist\n\n");
-        return 1;
-    }
-    subscribtion.topic_id = topic_id;
-
-    int topic_cnt;
-    bool done = 0;
-    while(!done) {
-        printf("indef (0), number of messeges (n>0)\n");
-        scanf("%d", &topic_id);
-        if(topic_cnt < 0) {
-            printf("has to be a positive number\n\n");
-            continue;
-        }
-        done = 1;
-    }
-    subscribtion.cnt = topic_cnt; 
-
-    msgsnd(server_q, &subscribtion, sizeof(struct message) - sizeof(long), 0);
-    struct message response;
-    msgrcv(client_q, &response, sizeof(struct message) - sizeof(long), 0, 0);
-    if(response.mtype == SR_ERR) {
-        printf("%s\n", response.text);
-        return 1;
-    }
-    return 0;
+int subscribe_modify(int client_q , int server_q, const char* topicname, int duration) {
+    struct message subMessage;
+    subMessage.mtype = CR_ADD_SUB;
+    subMessage.id = client_q;
+    subMessage.cnt = duration;
+    strcpy(subMessage.topicname, topicname);
+    msgsnd(server_q, &subMessage, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &subMessage, sizeof(struct message) - sizeof(long), CR_ADD_SUB, 0);
+    return subMessage.id == SR_ERR;
 }
 
-int modify_subscription(int client_q , int server_q) {
-    return 0;
+int unsubscribe(int client_q , int server_q, const char* topicname) {
+    struct message unsubMessage;
+    unsubMessage.mtype = CR_UNSUB;
+    unsubMessage.id = client_q;
+    strcpy(unsubMessage.topicname, topicname);
+    msgsnd(server_q, &unsubMessage, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &unsubMessage, sizeof(struct message) - sizeof(long), CR_UNSUB, 0);
+    return unsubMessage.id == SR_ERR;
 }
 
-int create_topic(int client_q , int server_q) {
-    struct message topic;
-    topic.mtype = CR_CREAT_TOPIC;
-    topic.id = client_q;
-    printf("what is the name of the topic that you want to create?\n");
-    char* unchecked_name = (char*)malloc(50); //free?
-    scanf("%s", unchecked_name);
-    
-    if(strlen(unchecked_name) > TOPIC_LEN) {
-        printf("Invalid topic name: too long, try again\n\n");
-        return 1;
-    } else {
-        strcpy(topic.topicname, unchecked_name);
-    }
-    msgsnd(server_q, &topic, sizeof(struct message) - sizeof(long), 0);
-    struct message response;
-    msgrcv(client_q, &response, sizeof(struct message) - sizeof(long), 0, 0);
-    if(response.mtype == SR_ERR) {
-        printf("%s\n", response.text);
-        return 1;
-    }
-    return 0;
+int create_topic(int client_q , int server_q, const char* topicname) {
+    struct message topicMessage;
+    topicMessage.mtype = CR_CREAT_TOPIC;
+    topicMessage.id = client_q;
+    strcpy(topicMessage.topicname, topicname);
+    msgsnd(server_q, &topicMessage, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &topicMessage, sizeof(struct message) - sizeof(long), CR_CREAT_TOPIC, 0);
+    return topicMessage.id == SR_ERR;
 }
 
-int send_message(int server_q, int client_q , char* text) {
+void display_topiclist(int client_q , int server_q, struct messageLogBuffer* mlb) {
+    struct message topicListMessege;
+    topicListMessege.mtype = CR_REQ_TOPIC;
+    topicListMessege.id = client_q;
+    msgsnd(server_q, &topicListMessege, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &topicListMessege, sizeof(struct message) - sizeof(long), CR_REQ_TOPIC, 0);
+    struct messageEntry* entry = (struct messageEntry*) malloc(sizeof(struct messageEntry));
+    strcpy(entry->topic, "TOPIC LIST");
+    strcpy(entry->text, topicListMessege.topic_list); // to się może nie zmieścić, należałoby to ciąć do 100 znaków, znajdując pierwszy przecinek na indeksie mniejszym od 100 (maksymalna długość wiadomości)
+    addMessageToBuffer(mlb, entry);
+}
+
+int send_message(int server_q, int client_q , char* topic, char* username, char* text) {
     struct message textMessage;
     textMessage.mtype = CR_TEXTMSG;
+    strcpy(textMessage.topicname, topic);
+    strcpy(textMessage.username, username);
     strcpy(textMessage.text, text);
     return messageSend(server_q, &textMessage);
 }
@@ -140,8 +95,13 @@ int block_user(int server_q, int client_q, char* username) {
 
 int main() {
     int server_q = msgget(SERVER_KEY, IPC_CREAT | 0666); // czy klient powinien tworzyć czy tu ma być błont, czy ma czekać czy co?
-    int client_q = msgget(getpid(), IPC_CREAT | 0666);
-    while(send_login(client_q, server_q)) {};
+    int client_q = msgget(getpid() + 10000, IPC_CREAT | 0666);
+    char username[USERNAME_LEN];
+    do{
+        printf("Provide username: ");
+        scanf("%s", username);
+        
+    }while(send_login(client_q, server_q, username));
 
     char* topic = (char*) malloc(sizeof(char) * MAX_TOPIC_LENGTH);
     struct messageLogBuffer* messageLogBuffer = createMessageLogBuffer();
@@ -151,17 +111,26 @@ int main() {
 
     setNonBlockingMode();
     setvbuf(stdout, NULL, _IONBF, 0);
-    strcpy(topic, "RANDOM"); // default topic;
+    strcpy(topic, DEFAULT_TOPIC); // default topic;
 
     if(pthread_create(&inputThreadId, NULL, inputThreadFunction, (void*) data) != 0){
         perror("Failed to create input thread");
         exit(EXIT_FAILURE);
     }
 
+    int duration;
+    struct message msg;
     while (1) {
         displayUI(messageLogBuffer, data, topic);
 
-        //TODO incoming messages handling
+        if (msgrcv(client_q, &msg, sizeof(struct message), -CR_TEXTMSG, IPC_NOWAIT) != -1) {
+            char* header = (char*) malloc(sizeof(char) * (USERNAME_LEN + 1 + TOPIC_LEN));
+            strcpy(header, msg.username);
+            strcat(header, "@");
+            strcat(header, msg.topicname);
+            addMessageToBuffer(messageLogBuffer, createMessageEntry(header, msg.text));
+            free(header);
+        }
 
         if(data->inputReady){
             if (data->inputBuffer[0] == '/') {
@@ -180,13 +149,62 @@ int main() {
                         topic = strcpy(topic, data->inputBuffer + 7);
                     }
                 }
+                else if(strncmp(data->inputBuffer, "/help", 5) == 0) {
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topic [topic name]        switches the topic"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/newtopic [topic name]     creates new topic"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topiclist                 displays list of currenty topics"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/sub [topic name] [type]   creates an subscription"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/unsub [topic name]        deletes subscription if one exists"));
+                }
+                else if(strncmp(data->inputBuffer, "/sub ", 5) == 0) {
+                    int argLen = strlen(data->inputBuffer + 5);
+                    if(argLen == 0){
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "missing argument: topic"));
+                    }
+                    else if(argLen > MAX_TOPIC_LENGTH){
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "too long"));
+                    }
+                    else if(isAlnumOnly(data->inputBuffer + 7, argLen)){
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "invalid arguent"));
+                    }
+                    else{
+                        topic = strcpy(topic, data->inputBuffer + 7);
+                    }
+                    argLen = strlen(data->inputBuffer + 5 + argLen);
+                    int arg = atoi(data->inputBuffer + 5 + argLen);
+                    if(argLen == 0){
+                        duration = -1;
+                    } else if(arg <= 0) {
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "invalid argument: duration has to be a positive number"));
+                    } else {
+                        duration = arg;
+                    }
+                }
+                else if(strncmp(data->inputBuffer, "/unsub ", 7) == 0) {
+                    int argLen = strlen(data->inputBuffer + 7);
+                    if(argLen == 0){
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "missing argument: topic"));
+                    }
+                    else if(argLen > MAX_TOPIC_LENGTH){
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "too long"));
+                    }
+                    else if(isAlnumOnly(data->inputBuffer + 7, argLen)){
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "invalid arguent"));
+                    }
+                    else{
+                        topic = strcpy(topic, data->inputBuffer + 7);
+                    }
+                }
                 else{
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "Invalid command "));
                 }
             } 
             else {
-                addMessageToBuffer(messageLogBuffer, createMessageEntry(topic, data->inputBuffer));
+                //addMessageToBuffer(messageLogBuffer, createMessageEntry(topic, data->inputBuffer));
                 // TODO send message to server (nawet zamiast tego dodania do koeljki)
+                if(send_message(server_q, client_q, topic, username, data->inputBuffer)){
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "message went bad :("));
+                }
             }
             data->inputReady = 0;
             pthread_mutex_unlock(&data->inputLock);
@@ -195,6 +213,7 @@ int main() {
         usleep(100000);
     }
 
+    deleteMessageLogBuffer(messageLogBuffer);
     deleteThreadData(data);
     resetNonBlockingMode();
 
