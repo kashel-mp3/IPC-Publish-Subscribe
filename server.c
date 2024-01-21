@@ -386,14 +386,8 @@ void displayBlockedList(struct Client* client){
 struct Topic* create_topic(int id, const char* name, struct TopicLinkedList* topic_list, struct ClientLinkedList* client_list) {
     struct Topic* new_topic = (struct Topic*)malloc(sizeof(struct Topic));
     struct SubsLinkedList* subs_list = subs_linked_list(id, client_list);
-    if(!topic_list->tail) {
-        new_topic->id = 0;
-    } else {
-        new_topic->id = topic_list->tail->id + 1;
-    }
-    snprintf(new_topic->name, sizeof(new_topic->name), "%s", name); //?
+    strcpy(new_topic->name, name);
     new_topic->subscribers = subs_list;
-    //printf("%s\n", subs_list->head->client->username);
     new_topic->prev = NULL;
     new_topic->next = NULL;
     return new_topic;
@@ -446,6 +440,9 @@ int add_topic(struct TopicLinkedList* topic_list, const char* name, struct Clien
         new_topic->prev = topic_list->tail;
         topic_list->tail->next = new_topic;
         topic_list->tail = new_topic;
+    }
+    if(client_id != -1) { //zakladam -1 = server
+        add_modify_sub(topic_list, name, client_list, UNLIMITED, client_id);
     }
     return 0;
 }
