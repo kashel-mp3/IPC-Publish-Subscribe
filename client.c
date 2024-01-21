@@ -78,6 +78,7 @@ void display_topiclist(int client_q , int server_q, struct messageLogBuffer* mlb
 int send_message(int server_q, int client_q , char* topic, char* username, char* text) {
     struct message textMessage;
     textMessage.mtype = CR_TEXTMSG;
+    textMessage.id = client_q;
     strcpy(textMessage.topicname, topic);
     strcpy(textMessage.username, username);
     strcpy(textMessage.text, text);
@@ -87,6 +88,7 @@ int send_message(int server_q, int client_q , char* topic, char* username, char*
 int block_user(int server_q, int client_q, char* username) {
     struct message muteMessage;
     muteMessage.mtype = CR_MUTE;
+    muteMessage.id = client_q;
     strcpy(muteMessage.username, username);
     messageSend(server_q, &muteMessage);
     messageReceive(client_q, &muteMessage, CR_MUTE);
@@ -194,6 +196,17 @@ int main() {
                     else{
                         topic = strcpy(topic, data->inputBuffer + 7);
                     }
+                }
+                else if(strncmp(data->inputBuffer, "/mute ", 6) == 0){
+                    char* muteUsername = (char*) malloc(sizeof(char) * USERNAME_LEN);
+                    strcpy(muteUsername, data->inputBuffer + 6);
+                    if(block_user(server_q, client_q, muteUsername)){
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "Something went wrong with blocking."));
+                    }
+                    else{
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("INFO", "User successfully muted"));
+                    }
+                    free(muteUsername);
                 }
                 else{
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "Invalid command "));

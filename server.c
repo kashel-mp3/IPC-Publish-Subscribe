@@ -120,7 +120,7 @@ struct ClientLinkedList* client_linked_list() {
 struct Client* find_client_by_username(struct ClientLinkedList* list, const char* username) {
     struct Client* current = list->head;
     
-    while(current) {
+    while(current != NULL) {
         if(!strcmp(current->username, username)) {
             return current;
         }
@@ -373,6 +373,16 @@ void delete_blocked(struct BlockedLinkedList* list, int id) {
     }
 }
 
+void displayBlockedList(struct Client* client){
+    struct BlockedUser* curr = client->blocked->head;
+    printf("Blocked user list of %d %s: ", client->id, client->username);
+    while(curr != NULL){
+        printf("%d %s, ", curr->user->id, curr->user->username);
+        curr = curr->next;
+    }
+    printf("\n");
+}
+
 struct Topic* create_topic(int id, const char* name, struct TopicLinkedList* topic_list, struct ClientLinkedList* client_list) {
     struct Topic* new_topic = (struct Topic*)malloc(sizeof(struct Topic));
     struct SubsLinkedList* subs_list = subs_linked_list(id, client_list);
@@ -534,6 +544,7 @@ int main() {
                 if(find_client_by_username(active_clients, msg.username) != NULL) {
                     strcpy(response.text, "username taken lul");
                     printf("DBG | Client rejected: duplicate username. %s\n", msg.username);
+                    response.id = SR_ERR;
                 } else {
                     if(find_topic_by_name(active_topics, DEFAULT_TOPIC) == NULL) {
                         add_topic(active_topics, DEFAULT_TOPIC, active_clients, -1);
@@ -597,6 +608,7 @@ int main() {
                     strcpy(response.text, "no such user");
                 } else {
                     add_blocked(client->blocked, to_mute);
+                    displayBlockedList(client);
                     response.id = SR_OK;
                 }
                 break;
@@ -610,7 +622,9 @@ int main() {
                 response.id = SR_OK;
                 while(sub != NULL){
                     // TODO dekrementacja i usuwanie subskrybcji, nie wysyłanie, jeżeli nadawca jest w muted liście odbiorcy
-                    msgsnd(sub->client->id, &response, sizeof(struct message) - sizeof(long), 0);
+                    if(find_blocked_by_id(sub->client->blocked, msg.id) == NULL){ // można zmienić na find blocked by username, żeby jak ktoś przeloguje to dalej był blokowany
+                        msgsnd(sub->client->id, &response, sizeof(struct message) - sizeof(long), 0);
+                    }
                     sub = sub->next;
                 } // zakładamy, że osoba pisząca wiadomość odbiera ją w sposób synchroniczny (czeka na odpowiedź od serwera zanim dalej klient działa) oraz typ tej wiadomości jest taki sam jak zapytania CR_TEXTMSG, podczas gdy wiadomości od innych użytkowników są wysyłane z typem SR_TEXTMSG i klienci odbierają je w sposób asynchroniczny
                 continue;
