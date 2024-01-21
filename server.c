@@ -79,7 +79,7 @@ void add_blocked(struct BlockedLinkedList* list, struct Client* blocked);
 void delete_blocked(struct BlockedLinkedList* list, int id);
 void free_blocked_linked_list(struct BlockedLinkedList* list);
 
-struct Topic* create_topic(int id, const char* name, struct TopicLinkedList* topic_list, struct ClientLinkedList* client_list);
+struct Topic* create_topic(int id, const char* name, struct ClientLinkedList* client_list);
 struct TopicLinkedList* topic_linked_list();
 struct Topic* find_topic_by_name(struct TopicLinkedList* list, const char* name);
 struct Topic* find_topic_by_id(struct TopicLinkedList* list, int id);
@@ -232,7 +232,10 @@ struct Sub* find_sub_by_client_id(struct SubsLinkedList* list, struct ClientLink
 
 int add_modify_sub(struct TopicLinkedList* topic_list, const char* name, struct ClientLinkedList* client_list, int cnt, int id) {
     struct Topic* topic = find_topic_by_name(topic_list, name);
-    struct SubsLinkedList* subs_list =  topic->subscribers;
+    if(topic == NULL) {
+        return 1;
+    }
+    struct SubsLinkedList* subs_list = topic->subscribers;
     struct Sub* new_sub = find_sub_by_client_id(subs_list, client_list, id); 
     if(new_sub == NULL) {
         new_sub = create_sub(cnt, id, client_list);
@@ -373,17 +376,10 @@ void delete_blocked(struct BlockedLinkedList* list, int id) {
     }
 }
 
-struct Topic* create_topic(int id, const char* name, struct TopicLinkedList* topic_list, struct ClientLinkedList* client_list) {
+struct Topic* create_topic(int id, const char* name, struct ClientLinkedList* client_list) {
     struct Topic* new_topic = (struct Topic*)malloc(sizeof(struct Topic));
-    struct SubsLinkedList* subs_list = subs_linked_list(id, client_list);
-    if(!topic_list->tail) {
-        new_topic->id = 0;
-    } else {
-        new_topic->id = topic_list->tail->id + 1;
-    }
-    snprintf(new_topic->name, sizeof(new_topic->name), "%s", name); //?
-    new_topic->subscribers = subs_list;
-    //printf("%s\n", subs_list->head->client->username);
+    strcpy(new_topic->name, name);
+    new_topic->subscribers = subs_linked_list(id, client_list);
     new_topic->prev = NULL;
     new_topic->next = NULL;
     return new_topic;
@@ -428,7 +424,7 @@ int add_topic(struct TopicLinkedList* topic_list, const char* name, struct Clien
     if(find_topic_by_name(topic_list, name) != NULL) {
         return 1;
     }
-    struct Topic* new_topic = create_topic(client_id, name, topic_list, client_list);
+    struct Topic* new_topic = create_topic(client_id, name, client_list);
     if(topic_list->head == NULL) {
         topic_list->head = new_topic;
         topic_list->tail = new_topic;
@@ -436,6 +432,9 @@ int add_topic(struct TopicLinkedList* topic_list, const char* name, struct Clien
         new_topic->prev = topic_list->tail;
         topic_list->tail->next = new_topic;
         topic_list->tail = new_topic;
+    }
+    if(client_id != -1) { //-1 utworzone przez serwer
+        add_modify_sub(topic_list, name, client_list, UNLIMITED, client_id);
     }
     return 0;
 }
@@ -611,6 +610,12 @@ int main() {
                 while(sub != NULL){
                     // TODO dekrementacja i usuwanie subskrybcji, nie wysyłanie, jeżeli nadawca jest w muted liście odbiorcy
                     msgsnd(sub->client->id, &response, sizeof(struct message) - sizeof(long), 0);
+                    if(sub->cnt > 0) {
+                        sub->cnt--;
+                        if(sub->cnt == 0) {
+                            delete_sub(active_topics, msg.topicname, active_clients, msg.id);
+                        }
+                    }
                     sub = sub->next;
                 } // zakładamy, że osoba pisząca wiadomość odbiera ją w sposób synchroniczny (czeka na odpowiedź od serwera zanim dalej klient działa) oraz typ tej wiadomości jest taki sam jak zapytania CR_TEXTMSG, podczas gdy wiadomości od innych użytkowników są wysyłane z typem SR_TEXTMSG i klienci odbierają je w sposób asynchroniczny
                 continue;
