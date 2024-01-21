@@ -18,6 +18,7 @@
 #define CR_ADD_SUB 15
 #define CR_UNSUB 16
 #define CR_MUTE 17
+#define CR_TOPIC 18
 
 #define DEFAULT_TOPIC "RANDOM"
 #define UNLIMITED -1

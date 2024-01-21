@@ -465,17 +465,15 @@ char* topics_to_string(struct TopicLinkedList* topics) {
     struct Topic* current_topic = topics->head;
 
     while (current_topic != NULL) {
-        total_length += snprintf(NULL, 0, "%d. %s\n", current_topic->id, current_topic->name);
+        total_length += snprintf(NULL, 0, "%s%s", current_topic->name, (current_topic->next != NULL) ? ", " : "");
         current_topic = current_topic->next;
     }
-
     char* result = (char*)malloc(total_length + 1);
-
     char* current_position = result;
     current_topic = topics->head;
 
     while (current_topic != NULL) {
-        current_position += snprintf(current_position, total_length + 1, "%d. %s\n", current_topic->id, current_topic->name);
+        current_position += snprintf(current_position, total_length + 1, "%s%s", current_topic->name, (current_topic->next != NULL) ? ", " : "");
         current_topic = current_topic->next;
     }
 
@@ -554,6 +552,7 @@ int main() {
                     printf("DBG | Client added: %s\n", msg.username);
                 }
                 break;
+
             case CR_CREAT_TOPIC:
                 response.mtype = CR_CREAT_TOPIC;
                 if(find_topic_by_name(active_topics, msg.topicname) != NULL) {
@@ -564,10 +563,11 @@ int main() {
                     //printTopicsAndSubscribers(active_topics);
                     no_of_topics++;
                     response.id = SR_OK;
-                    
+                    send_info_about_new_topic(active_clients, msg.topicname, msg.id);
                     printf("DBG | Topic request accepted: topic created %s\n", msg.topicname);
                 }
                 break;
+
             case CR_REQ_TOPIC:
                 response.mtype = CR_REQ_TOPIC;
                 response.topic_list[0] = '\0';
@@ -583,20 +583,28 @@ int main() {
                     printf("DBG | Memory allocation error for topic_list\n");
                 }
                 break;
+
             case CR_ADD_SUB:
                 response.mtype = CR_ADD_SUB;
-                struct Topic* topic = find_topic_by_id(active_topics, msg.topic_id);
-                add_modify_sub(active_topics, topic->name, active_clients, msg.cnt, msg.id);
-                response.mtype = SR_OK; // nie wiem kiedy jest nie ok (kiedy nie znajdziemy tego topicu)
-                send_info_about_new_topic(active_clients, msg.topicname, msg.id);
-                printTopicsAndSubscribers(active_topics);
+                printf("SUB %s %d\n", msg.topicname, msg.sub_duration);
+                struct Topic* topic = find_topic_by_name(active_topics, msg.topicname);
+                if(topic == NULL) {
+                    response.id = SR_ERR;
+                    strcpy(response.text, "no such topic");
+                } else {
+                    add_modify_sub(active_topics, msg.topicname, active_clients, msg.cnt, msg.id);
+                    response.id = SR_OK; 
+                    printTopicsAndSubscribers(active_topics);
+                }
                 break;
+
             case CR_UNSUB:
                 response.mtype = CR_UNSUB;
                 printf("DBG | %s successfully unsubscribed from %s\n", msg.username, msg.topicname);
                 delete_sub(active_topics, msg.topicname, active_clients, msg.id);
                 response.id = SR_OK;
                 break;
+
             case CR_MUTE:
                 response.mtype = CR_MUTE;
                 struct Client* client = find_client_by_id(active_clients, msg.id);
@@ -609,6 +617,7 @@ int main() {
                     response.id = SR_OK;
                 }
                 break;
+
             case CR_TEXTMSG:
                 struct Topic* topic1 = find_topic_by_name(active_topics, msg.topicname);
                 struct Sub* sub = topic1->subscribers->head;
@@ -626,9 +635,20 @@ int main() {
                 } // zakładamy, że osoba pisząca wiadomość odbiera ją w sposób synchroniczny (czeka na odpowiedź od serwera zanim dalej klient działa) oraz typ tej wiadomości jest taki sam jak zapytania CR_TEXTMSG, podczas gdy wiadomości od innych użytkowników są wysyłane z typem SR_TEXTMSG i klienci odbierają je w sposób asynchroniczny
                 continue;
                 break;
+
+            case CR_TOPIC:
+                if(find_topic_by_name(active_topics, msg.topicname) != NULL){
+                    response.id = SR_OK;
+                }
+                else{
+                    response.id = SR_ERR;
+                }
+                break;
         }
         msgsnd(msg.id, &response, sizeof(struct message) - sizeof(long), 0);
     }
 
+    free_client_linked_list(active_clients);
+    free_topic_linked_list(active_topics);
     return 0;
 }
