@@ -609,6 +609,7 @@ int main() {
                 response.mtype = SR_TEXTMSG;
                 response.id = SR_OK;
                 while(sub != NULL){
+                    // TODO dekrementacja i usuwanie subskrybcji, nie wysyłanie, jeżeli nadawca jest w muted liście odbiorcy
                     msgsnd(sub->client->id, &response, sizeof(struct message) - sizeof(long), 0);
                     sub = sub->next;
                 } // zakładamy, że osoba pisząca wiadomość odbiera ją w sposób synchroniczny (czeka na odpowiedź od serwera zanim dalej klient działa) oraz typ tej wiadomości jest taki sam jak zapytania CR_TEXTMSG, podczas gdy wiadomości od innych użytkowników są wysyłane z typem SR_TEXTMSG i klienci odbierają je w sposób asynchroniczny
