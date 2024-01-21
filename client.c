@@ -139,16 +139,33 @@ int main() {
                 if(strncmp(data->inputBuffer, "/topic ", 7) == 0){
                     int argLen = strlen(data->inputBuffer + 7);
                     if(argLen == 0){
-                        //TODO missing argument
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "missing argument: topic"));
                     }
                     else if(argLen > MAX_TOPIC_LENGTH){
-                        //TODO topic too long
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "too long"));
                     }
                     else if(isAlnumOnly(data->inputBuffer + 7, argLen)){
-                        //TODO invalid argument !ALNUM
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "invalid arguent"));
                     }
                     else{
-                        topic = strcpy(topic, data->inputBuffer + 7);
+                        strcpy(topic, data->inputBuffer + 7);
+                    }
+                } else if(strncmp(data->inputBuffer, "/newtopic ", 10) == 0) {
+                    int argLen = strlen(data->inputBuffer + 10);
+                    if(argLen == 0){
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "missing argument: topic"));
+                    }
+                    else if(argLen > MAX_TOPIC_LENGTH){
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "too long"));
+                    }
+                    else if(isAlnumOnly(data->inputBuffer + 10, argLen)){
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "invalid arguent"));
+                    }
+                    else{
+                        strcpy(topic, data->inputBuffer + 10);
+                        if(create_topic(client_q, server_q, data->inputBuffer + 10)){
+                            addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "topic with this name already exists"));
+                        }
                     }
                 }
                 else if(strncmp(data->inputBuffer, "/help", 5) == 0) {
@@ -166,20 +183,30 @@ int main() {
                     else if(argLen > MAX_TOPIC_LENGTH){
                         addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "too long"));
                     }
-                    else if(isAlnumOnly(data->inputBuffer + 7, argLen)){
+                    else if(isAlnumOnly(data->inputBuffer + 5, argLen)){
                         addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "invalid arguent"));
                     }
                     else{
-                        topic = strcpy(topic, data->inputBuffer + 7);
-                    }
-                    argLen = strlen(data->inputBuffer + 5 + argLen);
-                    int arg = atoi(data->inputBuffer + 5 + argLen);
-                    if(argLen == 0){
-                        duration = -1;
-                    } else if(arg <= 0) {
-                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "invalid argument: duration has to be a positive number"));
-                    } else {
-                        duration = arg;
+                        struct message msg;
+                        msg.mtype = CR_ADD_SUB;
+                        msg.id = client_q;
+                        strcpy(msg.topicname, data->inputBuffer + 5);
+                        argLen = strlen(data->inputBuffer + 5 + argLen);
+                        int arg = atoi(data->inputBuffer + 5 + argLen);
+                        if(argLen == 0){
+                            duration = -1;
+                        } else if(arg <= 0) {
+                            addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "invalid argument: duration has to be a positive number"));
+                        } else {
+                            duration = arg;
+                        }
+                        
+                        msg.cnt = duration;
+                        msgsnd(server_q, &msg, sizeof(struct message) - sizeof(long), 0);
+                        msgrcv(client_q, &msg, sizeof(struct message) - sizeof(long), CR_ADD_SUB, 0);
+                        if(msg.id == SR_ERR) {
+                            addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", msg.text));
+                        }
                     }
                 }
                 else if(strncmp(data->inputBuffer, "/unsub ", 7) == 0) {
