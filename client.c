@@ -1,4 +1,6 @@
 #include "parameters.h"
+#include "messageTypes.h"
+#include "ui.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,9 +11,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
-
-#include "messageTypes.h"
-#include "ui.h"
 
 int messageSend(int queueId, struct message* msg){
     return msgsnd(queueId, msg, sizeof(struct message) - sizeof(long), 0);
@@ -206,11 +205,11 @@ int main() {
                 }
                 else if(strncmp(data->inputBuffer, "/help", 5) == 0) {
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topic [topic name]        switches the topic"));
-                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/newtopic [topic name]     creates new topic"));
-                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topiclist                 displays list of currenty topics"));
-                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/sub [topic name] [type]   creates an subscription"));
-                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/unsub [topic name]        deletes subscription if one exists"));
-                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/mute [username]           mutes user based on username"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/newtopic [topic name]     creates a new topic"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topiclist                 displays a list of currenty topics"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/sub [topic name] [type]   creates a subscription"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/unsub [topic name]        deletes a subscription if one exists"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/mute [username]           mutes/unmutes user based on username"));
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/quit                      exits the program"));
                 }
                 else if(strncmp(data->inputBuffer, "/sub ", 5) == 0) {
