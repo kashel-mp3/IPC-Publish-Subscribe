@@ -1,9 +1,6 @@
 #pragma once
 #include <pthread.h>
-
-#define MAX_MESSAGES 10
-#define MAX_MESSAGE_LENGTH 100
-#define MAX_TOPIC_LENGTH 36
+#include "parameters.h"
 
 struct messageEntry
 {
