@@ -51,7 +51,6 @@ struct Client* find_client_by_id(struct ClientLinkedList* list, int id) {
     return NULL;
 }
 
-//returns: 1 - client not added username taken/ 0 - client added
 int add_client(struct ClientLinkedList* list, int id, const char* username) {
     if(find_client_by_username(list, username) != NULL) {
         return 1;
@@ -412,7 +411,7 @@ int send_info_about_new_topic(struct ClientLinkedList* client_list, const char* 
     strcpy(author_feedback.username, "SERVER");
     strcpy(author_feedback.topicname, "INFO");
     author_feedback.mtype = SR_INFO;
-    strcpy(author_feedback.text, "your topic has been sucessfully addeed!!! ;^D");
+    strcpy(author_feedback.text, "your topic has been sucessfully addeed");
     strcpy(client_info.username, "SERVER");
     strcpy(client_info.topicname, "INFO");
     client_info.mtype = SR_INFO;
@@ -501,6 +500,7 @@ int main() {
                     strcpy(response.text, "no such topic");
                 } else {
                     add_modify_sub(active_topics, msg.topicname, active_clients, msg.sub_duration, msg.id);
+                    strcpy(response.text, "subscription sucessfully added or modified");
                     response.id = SR_OK; 
                     printTopicsAndSubscribers(active_topics);
                 }
@@ -556,7 +556,7 @@ int main() {
                 response.mtype = SR_TEXTMSG;
                 response.id = SR_OK;
                 struct message sub_ended;
-                sub_ended.mtype = SR_INFO;
+                sub_ended.mtype = CR_TEXTMSG;
                 sub_ended.id = SR_OK;
                 strcpy(sub_ended.username, "SERVER");
                 strcpy(sub_ended.topicname, "INFO");

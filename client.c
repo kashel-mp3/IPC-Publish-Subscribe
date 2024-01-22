@@ -1,7 +1,6 @@
 #include "parameters.h"
 #include "messageTypes.h"
 #include "client.h"
-#include "ui.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -119,7 +118,7 @@ int main() {
                             if(msg.id == SR_ERR) {
                                 addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", msg.text));
                             } else {
-                                addMessageToBuffer(messageLogBuffer, createMessageEntry("INFO", "subscription sucessfully added"));
+                                addMessageToBuffer(messageLogBuffer, createMessageEntry("INFO", msg.text));
                             }
                         }
                     }

@@ -73,7 +73,7 @@ struct BlockedUser* create_blocked(struct Client* blocked);
 struct BlockedLinkedList* blocked_linked_list();
 struct BlockedUser* find_blocked_by_id(struct BlockedLinkedList* list, int id);
 void add_blocked(struct BlockedLinkedList* list, struct Client* blocked);
-void delete_blocked(struct BlockedLinkedList* list, int id);
+void delete_blocked(struct BlockedLinkedList* list, struct BlockedUser* blocked);
 void free_blocked_linked_list(struct BlockedLinkedList* list);
 
 struct Topic* create_topic(int id, const char* name, struct TopicLinkedList* topic_list, struct ClientLinkedList* client_list);

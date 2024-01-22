@@ -1,3 +1,5 @@
+#include "ui.h"
+
 int messageSend(int queueId, struct message* msg);
 struct message* messageReceive(int queueId, struct message* msg, long mtype);
 int send_login(int client_q , int server_q, const char* username);
