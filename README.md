@@ -7,5 +7,5 @@ gcc -o client client.c ui.c -Wall
 ```
 Opis plików:
 - client.c - implementacja całej logiki działania klienta
-- ui.c - implementacja interfeksu użytkownika klienta
+- ui.c - implementacja interfejsu użytkownika klienta
 - server.c - implementacja całej logiki działania serwera
