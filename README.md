@@ -4,8 +4,8 @@ Projekt zaliczeniowy z przedmiotu programowanie systemowe i współbieżne.
 ## Instrukcja kompilacji
 Zalecamy kompilację projektu używając kompilatora gcc oraz za pomocą następujących komend.
 ```
-gcc -o server server.c -Wall
-gcc -o client client.c ui.c -Wall
+gcc -o server inf155868_155958_s.c -Wall
+gcc -o client inf155868_155958_k.c inf155868_155958_ui.c -Wall
 ```
 
 ## Instrukcja uruchomienia
@@ -34,7 +34,7 @@ Dostępne komendy:
 
 
 ## Opis plików:
-client.c - implementacja całej logiki działania klienta\
-ui.c - implementacja interfeksu użytkownika klienta\
-server.c - implementacja całej logiki działania serwera
+- inf155868_155958_s.c - implementacja całej logiki działania serwera
+- inf155868_155958_k.c - implementacja całej logiki działania klienta
+- inf155868_155958_ui.c - implementacja interfejsu użytkownika klienta
 
