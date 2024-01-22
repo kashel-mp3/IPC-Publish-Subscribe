@@ -85,14 +85,14 @@ int send_message(int server_q, int client_q , char* topic, char* username, char*
     return messageSend(server_q, &textMessage);
 }
 
-int block_user(int server_q, int client_q, char* username) {
+struct message block_user(int server_q, int client_q, char* username) {
     struct message muteMessage;
     muteMessage.mtype = CR_MUTE;
     muteMessage.id = client_q;
     strcpy(muteMessage.username, username);
     messageSend(server_q, &muteMessage);
     messageReceive(client_q, &muteMessage, CR_MUTE);
-    return muteMessage.id == SR_ERR;
+    return muteMessage;
 }
 
 int checkTopic(int server_q, int client_q, char* topicname){
@@ -259,11 +259,12 @@ int main() {
                 else if(strncmp(data->inputBuffer, "/mute ", 6) == 0){
                     char* muteUsername = (char*) malloc(sizeof(char) * USERNAME_LEN);
                     strcpy(muteUsername, data->inputBuffer + 6);
-                    if(block_user(server_q, client_q, muteUsername)){
+                    struct message msg = block_user(server_q, client_q, muteUsername);
+                    if(msg.id == SR_ERR){
                         addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "Something went wrong with blocking."));
                     }
                     else{
-                        addMessageToBuffer(messageLogBuffer, createMessageEntry("INFO", "User successfully muted"));
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("INFO", msg.text));
                     }
                     free(muteUsername);
                 }
