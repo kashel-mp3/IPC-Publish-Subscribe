@@ -1,13 +1,7 @@
 #pragma once
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <string.h>
-#include <sys/msg.h>
-
 #include "parameters.h"
+#include "messageTypes.h"
 
 struct BlockedUser {
     struct Client* user;
@@ -89,16 +83,3 @@ struct Topic* find_topic_by_id(struct TopicLinkedList* list, int id);
 int add_topic(struct TopicLinkedList* topic_list, const char* name, struct ClientLinkedList* client_list, int client_id); 
 void delete_topic(struct Topic* topic, struct TopicLinkedList* list);
 void free_topic_linked_list(struct TopicLinkedList* list);
-
-struct message {
-    long mtype;
-    int id;
-    int cnt;
-    char username[USERNAME_LEN];
-    char topicname[TOPIC_LEN];
-    char topic_id;
-    int sub_duration;
-    char sub_topic[20];
-    char text[100];
-    char topic_list[TOPIC_LEN*TOPIC_CNT];
-};

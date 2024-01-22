@@ -1,6 +1,12 @@
 #include "parameters.h"
 #include "server.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <string.h>
+#include <sys/msg.h>
 
 struct Client* create_client(int id, const char* username) {
     struct Client* new_client = (struct Client*)malloc(sizeof(struct Client));

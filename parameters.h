@@ -23,6 +23,6 @@
 #define DEFAULT_TOPIC "RANDOM"
 #define UNLIMITED -1
 
-#define MAX_MESSAGES 10
+#define MAX_MESSAGES 15 // liczba najnowszych wiadomości wyświetlanych w oknie klienta
 #define MAX_MESSAGE_LENGTH 100
 #define MAX_TOPIC_LENGTH 36
