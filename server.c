@@ -77,7 +77,7 @@ struct BlockedUser* create_blocked(struct Client* blocked);
 struct BlockedLinkedList* blocked_linked_list();
 struct BlockedUser* find_blocked_by_id(struct BlockedLinkedList* list, int id);
 void add_blocked(struct BlockedLinkedList* list, struct Client* blocked);
-void delete_blocked(struct BlockedLinkedList* list, int id);
+void delete_blocked(struct BlockedLinkedList* list, struct BlockedUser* blocked);
 void free_blocked_linked_list(struct BlockedLinkedList* list);
 
 struct Topic* create_topic(int id, const char* name, struct TopicLinkedList* topic_list, struct ClientLinkedList* client_list);
@@ -351,24 +351,23 @@ void add_blocked(struct BlockedLinkedList* list, struct Client* blocked) {
     }
 }
 
-void delete_blocked(struct BlockedLinkedList* list, int id) {
-    struct BlockedUser* blocked = find_blocked_by_id(list, id);
-    if(blocked) {
-        if(blocked->next) {
-            blocked->next->prev = blocked->prev;
-        } else {
-            blocked->prev->next = NULL;
-            list->tail = blocked->prev;
-        }
-        if(blocked->prev) {
-            blocked->prev->next = blocked->next;
-        } else {
-            blocked->next->prev = NULL;
-            list->head = blocked->next;
-        }
-        free(blocked);
+void delete_blocked(struct BlockedLinkedList* list, struct BlockedUser* blocked) {
+    if(blocked == list->head && blocked == list->tail) {
+        list->head = NULL;
+        list->tail = NULL;
+    } else if(blocked == list->head) {
+        list->head = blocked->next;
+        blocked->next->prev = NULL;
+    } else if (blocked == list->tail) {
+        list->tail = blocked->prev;
+        blocked->prev->next = NULL;
+    } else {
+        blocked->prev->next = blocked->next;
+        blocked->next->prev = blocked->prev;
     }
+    free(blocked);
 }
+
 
 void displayBlockedList(struct Client* client){
     struct BlockedUser* curr = client->blocked->head;
@@ -629,7 +628,14 @@ int main() {
                 if(to_mute == NULL) {
                     strcpy(response.text, "no such user");
                 } else {
-                    add_blocked(client->blocked, to_mute);
+                    struct BlockedUser* user = find_blocked_by_id(client->blocked, to_mute->id);
+                    if(user == NULL) {
+                        add_blocked(client->blocked, to_mute);
+                        strcpy(response.text, "user sucessfully muted");
+                    } else {
+                        delete_blocked(client->blocked, user);
+                        strcpy(response.text, "user sucessfully unmuted");
+                    }
                     displayBlockedList(client);
                     response.id = SR_OK;
                 }
@@ -680,7 +686,6 @@ int main() {
         }
         msgsnd(msg.id, &response, sizeof(struct message) - sizeof(long), 0);
     }
-
     free_client_linked_list(active_clients);
     free_topic_linked_list(active_topics);
     return 0;
