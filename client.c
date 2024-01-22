@@ -211,6 +211,7 @@ int main() {
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/sub [topic name] [type]   creates an subscription"));
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/unsub [topic name]        deletes subscription if one exists"));
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/mute [username]           mutes user based on username"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/quit                      exits the program"));
                 }
                 else if(strncmp(data->inputBuffer, "/sub ", 5) == 0) {
                     int argLen = strlen(data->inputBuffer + 5);
@@ -283,7 +284,8 @@ int main() {
         }
         usleep(100000);
     }
-
+    
+    pthread_cancel(inputThreadId);
     clearScreen();
     deleteMessageLogBuffer(messageLogBuffer);
     deleteThreadData(data);
