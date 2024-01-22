@@ -1,5 +1,6 @@
 #include "parameters.h"
 #include "messageTypes.h"
+#include "client.h"
 #include "ui.h"
 
 #include <stdio.h>
@@ -11,119 +12,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
-
-int messageSend(int queueId, struct message* msg){
-    return msgsnd(queueId, msg, sizeof(struct message) - sizeof(long), 0);
-}
-
-struct message* messageReceive(int queueId, struct message* msg, long mtype){
-    msgrcv(queueId, msg, sizeof(struct message) - sizeof(long), 0, 0);
-    return msg;
-}
-
-int send_login(int client_q , int server_q, const char* username) {
-    struct message loginMessage;
-    loginMessage.mtype = CR_LOGIN;
-    loginMessage.id = client_q;
-    strcpy(loginMessage.username, username);
-    msgsnd(server_q, &loginMessage, sizeof(struct message) - sizeof(long), 0);
-    msgrcv(client_q, &loginMessage, sizeof(struct message) - sizeof(long), CR_LOGIN, 0);
-    return loginMessage.id == SR_ERR;
-}
-
-struct message subscribe_modify(int client_q , int server_q, const char* topicname, int duration) {
-    struct message subMessage;
-    subMessage.mtype = CR_ADD_SUB;
-    subMessage.id = client_q;
-    subMessage.sub_duration = duration;
-    strcpy(subMessage.topicname, topicname);
-    msgsnd(server_q, &subMessage, sizeof(struct message) - sizeof(long), 0);
-    msgrcv(client_q, &subMessage, sizeof(struct message) - sizeof(long), CR_ADD_SUB, 0);
-    return subMessage;
-}
-
-int unsubscribe(int client_q , int server_q, const char* topicname) {
-    struct message unsubMessage;
-    unsubMessage.mtype = CR_UNSUB;
-    unsubMessage.id = client_q;
-    strcpy(unsubMessage.topicname, topicname);
-    msgsnd(server_q, &unsubMessage, sizeof(struct message) - sizeof(long), 0);
-    msgrcv(client_q, &unsubMessage, sizeof(struct message) - sizeof(long), CR_UNSUB, 0);
-    return unsubMessage.id == SR_ERR;
-}
-
-int create_topic(int client_q , int server_q, const char* topicname) {
-    struct message topicMessage;
-    topicMessage.mtype = CR_CREAT_TOPIC;
-    topicMessage.id = client_q;
-    strcpy(topicMessage.topicname, topicname);
-    msgsnd(server_q, &topicMessage, sizeof(struct message) - sizeof(long), 0);
-    msgrcv(client_q, &topicMessage, sizeof(struct message) - sizeof(long), CR_CREAT_TOPIC, 0);
-    return topicMessage.id == SR_ERR;
-}
-
-void display_topiclist(int client_q , int server_q, struct messageLogBuffer* mlb) {
-    struct message topicListMessege;
-    topicListMessege.mtype = CR_REQ_TOPIC;
-    topicListMessege.id = client_q;
-    msgsnd(server_q, &topicListMessege, sizeof(struct message) - sizeof(long), 0);
-    msgrcv(client_q, &topicListMessege, sizeof(struct message) - sizeof(long), CR_REQ_TOPIC, 0);
-    struct messageEntry* entry = (struct messageEntry*) malloc(sizeof(struct messageEntry));
-    strcpy(entry->topic, "TOPIC LIST");
-    strcpy(entry->text, topicListMessege.topic_list);
-    addMessageToBuffer(mlb, entry);
-}
-
-int send_message(int server_q, int client_q , char* topic, char* username, char* text) {
-    struct message textMessage;
-    textMessage.mtype = CR_TEXTMSG;
-    textMessage.id = client_q;
-    strcpy(textMessage.topicname, topic);
-    strcpy(textMessage.username, username);
-    strcpy(textMessage.text, text);
-    return messageSend(server_q, &textMessage);
-}
-
-struct message block_user(int server_q, int client_q, char* username) {
-    struct message muteMessage;
-    muteMessage.mtype = CR_MUTE;
-    muteMessage.id = client_q;
-    strcpy(muteMessage.username, username);
-    messageSend(server_q, &muteMessage);
-    messageReceive(client_q, &muteMessage, CR_MUTE);
-    return muteMessage;
-}
-
-int checkTopic(int server_q, int client_q, char* topicname){
-    struct message topicMessage;
-    topicMessage.mtype = CR_TOPIC;
-    topicMessage.id = client_q;
-    strcpy(topicMessage.topicname, topicname);
-    messageSend(server_q, &topicMessage);
-    messageReceive(client_q, &topicMessage, CR_TOPIC);
-    return topicMessage.id == SR_ERR;
-}
-
-char* parseInput(char* input, int* parsedInt) {
-    char* spacePosition = strchr(input, ' ');
-    char* output;
-    if(spacePosition != NULL) {
-        size_t wordLength = spacePosition - input;
-        output = (char*)malloc(wordLength + 1);
-        strncpy(output, input, wordLength);
-        (output)[wordLength] = '\0'; 
-        if(*(spacePosition + 1) != '\0') {
-            *parsedInt = atoi(spacePosition + 1);
-        } else {
-            *parsedInt = -1;
-        }
-    } else {
-        output = input;
-        *parsedInt = -1;
-    }
-    return output;
-}
-
 
 int main() {
     int server_q = msgget(SERVER_KEY, IPC_CREAT | 0666);
@@ -292,4 +180,116 @@ int main() {
     resetNonBlockingMode();
 
     return 0;
+}
+
+int messageSend(int queueId, struct message* msg){
+    return msgsnd(queueId, msg, sizeof(struct message) - sizeof(long), 0);
+}
+
+struct message* messageReceive(int queueId, struct message* msg, long mtype){
+    msgrcv(queueId, msg, sizeof(struct message) - sizeof(long), 0, 0);
+    return msg;
+}
+
+int send_login(int client_q , int server_q, const char* username) {
+    struct message loginMessage;
+    loginMessage.mtype = CR_LOGIN;
+    loginMessage.id = client_q;
+    strcpy(loginMessage.username, username);
+    msgsnd(server_q, &loginMessage, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &loginMessage, sizeof(struct message) - sizeof(long), CR_LOGIN, 0);
+    return loginMessage.id == SR_ERR;
+}
+
+struct message subscribe_modify(int client_q , int server_q, const char* topicname, int duration) {
+    struct message subMessage;
+    subMessage.mtype = CR_ADD_SUB;
+    subMessage.id = client_q;
+    subMessage.sub_duration = duration;
+    strcpy(subMessage.topicname, topicname);
+    msgsnd(server_q, &subMessage, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &subMessage, sizeof(struct message) - sizeof(long), CR_ADD_SUB, 0);
+    return subMessage;
+}
+
+int unsubscribe(int client_q , int server_q, const char* topicname) {
+    struct message unsubMessage;
+    unsubMessage.mtype = CR_UNSUB;
+    unsubMessage.id = client_q;
+    strcpy(unsubMessage.topicname, topicname);
+    msgsnd(server_q, &unsubMessage, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &unsubMessage, sizeof(struct message) - sizeof(long), CR_UNSUB, 0);
+    return unsubMessage.id == SR_ERR;
+}
+
+int create_topic(int client_q , int server_q, const char* topicname) {
+    struct message topicMessage;
+    topicMessage.mtype = CR_CREAT_TOPIC;
+    topicMessage.id = client_q;
+    strcpy(topicMessage.topicname, topicname);
+    msgsnd(server_q, &topicMessage, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &topicMessage, sizeof(struct message) - sizeof(long), CR_CREAT_TOPIC, 0);
+    return topicMessage.id == SR_ERR;
+}
+
+void display_topiclist(int client_q , int server_q, struct messageLogBuffer* mlb) {
+    struct message topicListMessege;
+    topicListMessege.mtype = CR_REQ_TOPIC;
+    topicListMessege.id = client_q;
+    msgsnd(server_q, &topicListMessege, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &topicListMessege, sizeof(struct message) - sizeof(long), CR_REQ_TOPIC, 0);
+    struct messageEntry* entry = (struct messageEntry*) malloc(sizeof(struct messageEntry));
+    strcpy(entry->topic, "TOPIC LIST");
+    strcpy(entry->text, topicListMessege.topic_list);
+    addMessageToBuffer(mlb, entry);
+}
+
+int send_message(int server_q, int client_q , char* topic, char* username, char* text) {
+    struct message textMessage;
+    textMessage.mtype = CR_TEXTMSG;
+    textMessage.id = client_q;
+    strcpy(textMessage.topicname, topic);
+    strcpy(textMessage.username, username);
+    strcpy(textMessage.text, text);
+    return messageSend(server_q, &textMessage);
+}
+
+struct message block_user(int server_q, int client_q, char* username) {
+    struct message muteMessage;
+    muteMessage.mtype = CR_MUTE;
+    muteMessage.id = client_q;
+    strcpy(muteMessage.username, username);
+    messageSend(server_q, &muteMessage);
+    messageReceive(client_q, &muteMessage, CR_MUTE);
+    return muteMessage;
+}
+
+int checkTopic(int server_q, int client_q, char* topicname){
+    struct message topicMessage;
+    topicMessage.mtype = CR_TOPIC;
+    topicMessage.id = client_q;
+    strcpy(topicMessage.topicname, topicname);
+    messageSend(server_q, &topicMessage);
+    messageReceive(client_q, &topicMessage, CR_TOPIC);
+    return topicMessage.id == SR_ERR;
+}
+
+char* parseInput(char* input, int* parsedInt) {
+    char* spacePosition = strchr(input, ' ');
+    char* output;
+    if(spacePosition != NULL) {
+        size_t wordLength = spacePosition - input;
+        output = (char*)malloc(wordLength + 1);
+        strncpy(output, input, wordLength);
+        (output)[wordLength] = '\0'; 
+        if(*(spacePosition + 1) != '\0') {
+            *parsedInt = atoi(spacePosition + 1);
+        } else {
+            *parsedInt = -1;
+        }
+    } else {
+        output = input;
+        *parsedInt = -1;
+    }
+    return output;
 }
