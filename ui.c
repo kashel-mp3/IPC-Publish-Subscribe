@@ -157,9 +157,9 @@ void resetNonBlockingMode(){
     tcsetattr(STDIN_FILENO, TCSANOW, &ttystate);
 }
 
-void displayUI(struct messageLogBuffer* MLB, struct threadData* data, char* topic){
+void displayUI(struct messageLogBuffer* MLB, struct threadData* data, char* topic, char* username){
     clearScreen();
-    printf("Connected to LOCALHOST as GUEST\n");
+    printf("Connected to LOCALHOST as %s\n", username);
     int offset = displayMessages(MLB);
     pthread_mutex_lock(&data->bufferReadLock);
     moveCursor(offset + 2, 0);

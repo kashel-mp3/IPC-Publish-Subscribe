@@ -67,9 +67,10 @@ void free_client_linked_list(struct ClientLinkedList* list);
 
 struct Sub* create_sub(int cnt, int id, struct ClientLinkedList* list);
 struct SubsLinkedList* subs_linked_list();
-struct Sub* find_sub_by_client_id(struct SubsLinkedList* list, struct ClientLinkedList* client_list, int id);
+struct Sub* find_sub_by_client_id(struct SubsLinkedList* list, int id);
 int add_modify_sub(struct TopicLinkedList* topic_list, const char* name, struct ClientLinkedList* client_list, int cnt, int id);
-void delete_sub(struct TopicLinkedList* topic_list, const char* name, struct ClientLinkedList* client_list, int id);
+
+void delete_sub(struct TopicLinkedList* topic_list, struct Topic* topic, struct Sub* sub);
 void free_subs_linked_list(struct SubsLinkedList* list);
 
 struct BlockedUser* create_blocked(struct Client* blocked);
@@ -84,7 +85,7 @@ struct TopicLinkedList* topic_linked_list();
 struct Topic* find_topic_by_name(struct TopicLinkedList* list, const char* name);
 struct Topic* find_topic_by_id(struct TopicLinkedList* list, int id);
 int add_topic(struct TopicLinkedList* topic_list, const char* name, struct ClientLinkedList* client_list, int client_id); 
-void delete_topic(struct TopicLinkedList* list, const char* name);
+void delete_topic(struct Topic* topic, struct TopicLinkedList* list);
 void free_topic_linked_list(struct TopicLinkedList* list);
 
 struct message {
@@ -218,7 +219,7 @@ struct SubsLinkedList* subs_linked_list(int id, struct ClientLinkedList* client_
     return new_list;
 }
 
-struct Sub* find_sub_by_client_id(struct SubsLinkedList* list, struct ClientLinkedList* client_list, int id) {
+struct Sub* find_sub_by_client_id(struct SubsLinkedList* list, int id) {
     struct Sub* current = list->head;
     while(current) {
         if(current->client->id == id) {
@@ -233,7 +234,7 @@ struct Sub* find_sub_by_client_id(struct SubsLinkedList* list, struct ClientLink
 int add_modify_sub(struct TopicLinkedList* topic_list, const char* name, struct ClientLinkedList* client_list, int cnt, int id) {
     struct Topic* topic = find_topic_by_name(topic_list, name);
     struct SubsLinkedList* subs_list =  topic->subscribers;
-    struct Sub* new_sub = find_sub_by_client_id(subs_list, client_list, id); 
+    struct Sub* new_sub = find_sub_by_client_id(subs_list, id); 
     if(new_sub == NULL) {
         new_sub = create_sub(cnt, id, client_list);
         if(subs_list->head == NULL) {
@@ -250,17 +251,16 @@ int add_modify_sub(struct TopicLinkedList* topic_list, const char* name, struct 
     return 0;
 }
 
-void delete_topic(struct TopicLinkedList* list, const char* name) {
-    struct Topic* topic = find_topic_by_name(list, name);
+void delete_topic(struct Topic* topic, struct TopicLinkedList* list) {
     if(topic) {
-        if(topic->next) {
+        if(topic->next != NULL) {
             topic->next->prev = topic->prev;
         } else {
             topic->prev->next = NULL;
             list->tail = topic->prev;
 
         }
-        if(topic->prev) {
+        if(topic->prev != NULL) {
             topic->prev->next = topic->next;
         } else {
             topic->next->prev = NULL;
@@ -270,28 +270,25 @@ void delete_topic(struct TopicLinkedList* list, const char* name) {
     }
 }
 
-void delete_sub(struct TopicLinkedList* topic_list, const char* name, struct ClientLinkedList* client_list, int id) {
-    struct Topic* topic = find_topic_by_name(topic_list, name);
-    struct SubsLinkedList* subs_list = topic->subscribers;
-    struct Sub* sub = find_sub_by_client_id(subs_list, client_list, id);
+void delete_sub(struct TopicLinkedList* topic_list, struct Topic* topic, struct Sub* sub) {
     if(sub) {
-        if(sub->next) {
+        if(sub->next != NULL) {
             sub->next->prev = sub->prev;
         } else {
             sub->prev->next = NULL;
-            subs_list->tail = sub->prev;
+            topic->subscribers->tail = sub->prev;
 
         }
-        if(sub->prev) {
+        if(sub->prev != NULL) {
             sub->prev->next = sub->next;
         } else {
             sub->next->prev = NULL;
-            subs_list->head = sub->next;
+            topic->subscribers->head = sub->next;
         }
         free(sub);
     }
     if(topic->subscribers->head == NULL && topic->subscribers->tail == NULL) {
-        delete_topic(topic_list, name);
+        delete_topic(topic, topic_list);
     }
 }
 
@@ -506,10 +503,16 @@ int send_info_about_new_topic(struct ClientLinkedList* client_list, const char* 
     }
 
     struct message author_feedback, client_info;
+    strcpy(author_feedback.username, "SERVER");
+    strcpy(author_feedback.topicname, "INFO");
     author_feedback.mtype = SR_INFO;
     strcpy(author_feedback.text, "your topic has been sucessfully addeed!!! ;^D");
+    strcpy(client_info.username, "SERVER");
+    strcpy(client_info.topicname, "INFO");
     client_info.mtype = SR_INFO;
-    strcpy(client_info.text, "somebody just created a new topic");
+    strcpy(client_info.text, "somebody just created a new topic (");
+    strcat(client_info.text, topicname);
+    strcat(client_info.text, ")");
     while(current) {
         if(current->id == creator_id) {
             msgsnd(current->id, &author_feedback, sizeof(struct message) - sizeof(long), 0);
@@ -592,7 +595,7 @@ int main() {
                     response.id = SR_ERR;
                     strcpy(response.text, "no such topic");
                 } else {
-                    add_modify_sub(active_topics, msg.topicname, active_clients, msg.cnt, msg.id);
+                    add_modify_sub(active_topics, msg.topicname, active_clients, msg.sub_duration, msg.id);
                     response.id = SR_OK; 
                     printTopicsAndSubscribers(active_topics);
                 }
@@ -600,8 +603,22 @@ int main() {
 
             case CR_UNSUB:
                 response.mtype = CR_UNSUB;
-                printf("DBG | %s successfully unsubscribed from %s\n", msg.username, msg.topicname);
-                delete_sub(active_topics, msg.topicname, active_clients, msg.id);
+                
+                struct Topic* topic2 = find_topic_by_name(active_topics, msg.topicname);
+                if(topic2 == NULL) {
+                    response.id = SR_ERR;
+                    strcpy(response.text, "this topic does not exist");
+                    break;
+                } 
+                struct Sub* sub2 = find_sub_by_client_id(topic2->subscribers, msg.id);
+                if(sub2 == NULL) {
+                    response.id = SR_ERR;
+                    strcpy(response.text, "you werent subscribed in the first place");
+                    break;
+                }
+                struct Client* clientData = sub2->client;
+                delete_sub(active_topics, topic2, sub2);
+                printf("DBG | %s successfully unsubscribed from %s\n", clientData->username, msg.topicname);
                 response.id = SR_OK;
                 break;
 
@@ -626,10 +643,26 @@ int main() {
                 strcpy(response.text, msg.text);
                 response.mtype = SR_TEXTMSG;
                 response.id = SR_OK;
+                struct message sub_ended;
+                sub_ended.mtype = SR_INFO;
+                sub_ended.id = SR_OK;
+                strcpy(sub_ended.username, "SERVER");
+                strcpy(sub_ended.topicname, "INFO");
+                strcpy(sub_ended.text, "Your subscription to topic ");
+                strcat(sub_ended.text, msg.topicname);
+                strcat(sub_ended.text, " ended. You will not recieve further messeges from this topic.");
                 while(sub != NULL){
-                    // TODO dekrementacja i usuwanie subskrybcji, nie wysyłanie, jeżeli nadawca jest w muted liście odbiorcy
                     if(find_blocked_by_id(sub->client->blocked, msg.id) == NULL){ // można zmienić na find blocked by username, żeby jak ktoś przeloguje to dalej był blokowany
                         msgsnd(sub->client->id, &response, sizeof(struct message) - sizeof(long), 0);
+                        if(sub->client->id != msg.id && sub->cnt > 0) {
+                            sub->cnt--;
+                            printf("DBG: user %s has %d msg left from topic %s\n",sub->client->username, sub->cnt, topic1->name);
+                            if(sub->cnt == 0) {
+                                msgsnd(sub->client->id, &sub_ended, sizeof(struct message) - sizeof(long), 0);
+                                delete_sub(active_topics, topic1, sub);
+                                printTopicsAndSubscribers(active_topics);
+                            }
+                        }
                     }
                     sub = sub->next;
                 } // zakładamy, że osoba pisząca wiadomość odbiera ją w sposób synchroniczny (czeka na odpowiedź od serwera zanim dalej klient działa) oraz typ tej wiadomości jest taki sam jak zapytania CR_TEXTMSG, podczas gdy wiadomości od innych użytkowników są wysyłane z typem SR_TEXTMSG i klienci odbierają je w sposób asynchroniczny

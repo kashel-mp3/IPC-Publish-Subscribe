@@ -32,19 +32,15 @@ int send_login(int client_q , int server_q, const char* username) {
     return loginMessage.id == SR_ERR;
 }
 
-int subscribe_modify(int client_q , int server_q, const char* topicname, int duration) {
+struct message subscribe_modify(int client_q , int server_q, const char* topicname, int duration) {
     struct message subMessage;
     subMessage.mtype = CR_ADD_SUB;
     subMessage.id = client_q;
-    //if(duration > 0 || duration == -1) {
-        subMessage.sub_duration = duration;
-    //} else {
-     //   return SR_ERR;
-    //}
+    subMessage.sub_duration = duration;
     strcpy(subMessage.topicname, topicname);
     msgsnd(server_q, &subMessage, sizeof(struct message) - sizeof(long), 0);
     msgrcv(client_q, &subMessage, sizeof(struct message) - sizeof(long), CR_ADD_SUB, 0);
-    return subMessage.id == SR_ERR;
+    return subMessage;
 }
 
 int unsubscribe(int client_q , int server_q, const char* topicname) {
@@ -142,6 +138,7 @@ int main() {
 
     char* topic = (char*) malloc(sizeof(char) * MAX_TOPIC_LENGTH);
     struct messageLogBuffer* messageLogBuffer = createMessageLogBuffer();
+    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "Type /help to get some help."));
     struct threadData* data = createThreadData();
     pthread_t inputThreadId;
 
@@ -157,7 +154,7 @@ int main() {
 
     struct message msg;
     while (1) {
-        displayUI(messageLogBuffer, data, topic);
+        displayUI(messageLogBuffer, data, topic, username);
 
         if (msgrcv(client_q, &msg, sizeof(struct message), -CR_TEXTMSG, IPC_NOWAIT) != -1) {
             char* header = (char*) malloc(sizeof(char) * (USERNAME_LEN + 1 + TOPIC_LEN));
@@ -213,6 +210,7 @@ int main() {
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topiclist                 displays list of currenty topics"));
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/sub [topic name] [type]   creates an subscription"));
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/unsub [topic name]        deletes subscription if one exists"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/mute [username]           mutes user based on username"));
                 }
                 else if(strncmp(data->inputBuffer, "/sub ", 5) == 0) {
                     int argLen = strlen(data->inputBuffer + 5);
@@ -225,10 +223,16 @@ int main() {
                     else{
                         int duration = -1;
                         char* topicName = parseInput(data->inputBuffer + 5, &duration);
-                        if(subscribe_modify(client_q, server_q, topicName, duration) == SR_ERR) {
-                            addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "subscription not added"));
-                        } else {
-                            addMessageToBuffer(messageLogBuffer, createMessageEntry("INFO", "subscription sucessfully added"));
+                        if(duration <= 0 && duration != -1){
+                            addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "sub duration has to be a positive number"));
+                        }
+                        else{
+                            struct message msg = subscribe_modify(client_q, server_q, topicName, duration);
+                            if(msg.id == SR_ERR) {
+                                addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", msg.text));
+                            } else {
+                                addMessageToBuffer(messageLogBuffer, createMessageEntry("INFO", "subscription sucessfully added"));
+                            }
                         }
                     }
                 }
