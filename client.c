@@ -71,7 +71,7 @@ void display_topiclist(int client_q , int server_q, struct messageLogBuffer* mlb
     msgrcv(client_q, &topicListMessege, sizeof(struct message) - sizeof(long), CR_REQ_TOPIC, 0);
     struct messageEntry* entry = (struct messageEntry*) malloc(sizeof(struct messageEntry));
     strcpy(entry->topic, "TOPIC LIST");
-    strcpy(entry->text, topicListMessege.topic_list); // to się może nie zmieścić, należałoby to ciąć do 100 znaków, znajdując pierwszy przecinek na indeksie mniejszym od 100 (maksymalna długość wiadomości)
+    strcpy(entry->text, topicListMessege.topic_list);
     addMessageToBuffer(mlb, entry);
 }
 
@@ -127,7 +127,7 @@ char* parseInput(char* input, int* parsedInt) {
 
 
 int main() {
-    int server_q = msgget(SERVER_KEY, IPC_CREAT | 0666); // czy klient powinien tworzyć czy tu ma być błont, czy ma czekać czy co?
+    int server_q = msgget(SERVER_KEY, IPC_CREAT | 0666);
     int client_q = msgget(getpid() + 10000, IPC_CREAT | 0666);
     char username[USERNAME_LEN];
     do{
@@ -145,7 +145,7 @@ int main() {
 
     setNonBlockingMode();
     setvbuf(stdout, NULL, _IONBF, 0);
-    strcpy(topic, DEFAULT_TOPIC); // default topic;
+    strcpy(topic, DEFAULT_TOPIC);
 
     if(pthread_create(&inputThreadId, NULL, inputThreadFunction, (void*) data) != 0){
         perror("Failed to create input thread");
@@ -266,24 +266,25 @@ int main() {
                     }
                     free(muteUsername);
                 }
+                else if(strncmp(data->inputBuffer, "/quit", 5) == 0){
+                    break;
+                }
                 else{
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "Invalid command "));
                 }
             } 
             else {
-                //addMessageToBuffer(messageLogBuffer, createMessageEntry(topic, data->inputBuffer));
-                // TODO send message to server (nawet zamiast tego dodania do koeljki)
                 if(send_message(server_q, client_q, topic, username, data->inputBuffer)){
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "message went bad :("));
                 }
             }
             data->inputReady = 0;
             pthread_mutex_unlock(&data->inputLock);
-            //printf("input unlocked\n");
         }
         usleep(100000);
     }
 
+    clearScreen();
     deleteMessageLogBuffer(messageLogBuffer);
     deleteThreadData(data);
     resetNonBlockingMode();
