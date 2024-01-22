@@ -15,6 +15,15 @@
 int main() {
     int server_q = msgget(SERVER_KEY, IPC_CREAT | 0666);
     int client_q = msgget(getpid() + 10000, IPC_CREAT | 0666);
+    if(server_q == -1){
+        printf("An error occured when trying to initialize the server message queue.\n");
+        exit(EXIT_FAILURE);
+    }
+    if(client_q == -1){
+        printf("An error occured when trying to initialize the client message queue.\n");
+        exit(EXIT_FAILURE);
+    } 
+     
     char username[USERNAME_LEN];
     do{
         printf("Provide username: ");

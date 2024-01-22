@@ -435,7 +435,11 @@ int main() {
 
     int no_of_topics = 0;
 
-    int server_q = msgget(SERVER_KEY, IPC_CREAT | 0666); 
+    int server_q = msgget(SERVER_KEY, IPC_CREAT | 0666);
+    if(server_q == -1){
+        printf("An error occured when trying to initialize the message queue.\n");
+        exit(EXIT_FAILURE);
+    } 
     while(1) {
         struct message msg, response;
         msgrcv(server_q, &msg, sizeof(struct message) - sizeof(long), 0, 0);
