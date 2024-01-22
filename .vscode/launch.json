@@ -1,0 +1,21 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Build Project",
+        "type": "shell",
+        "command": "gcc",  // Change this to your compiler (e.g., g++, clang++)
+        "args": [         // Add debugging information
+          "-o",
+          "client",
+          "client.c",      // Add all your source files here
+          "ui.c"
+        ],
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        }
+      }
+    ]
+  }
+  

@@ -32,15 +32,15 @@ int send_login(int client_q , int server_q, const char* username) {
     return loginMessage.id == SR_ERR;
 }
 
-int subscribe_modify(int client_q , int server_q, const char* topicname, int duration) {
+struct message subscribe_modify(int client_q , int server_q, const char* topicname, int duration) {
     struct message subMessage;
     subMessage.mtype = CR_ADD_SUB;
     subMessage.id = client_q;
-    subMessage.cnt = duration;
+    subMessage.sub_duration = duration;
     strcpy(subMessage.topicname, topicname);
     msgsnd(server_q, &subMessage, sizeof(struct message) - sizeof(long), 0);
     msgrcv(client_q, &subMessage, sizeof(struct message) - sizeof(long), CR_ADD_SUB, 0);
-    return subMessage.id == SR_ERR;
+    return subMessage;
 }
 
 int unsubscribe(int client_q , int server_q, const char* topicname) {
@@ -95,6 +95,37 @@ int block_user(int server_q, int client_q, char* username) {
     return muteMessage.id == SR_ERR;
 }
 
+int checkTopic(int server_q, int client_q, char* topicname){
+    struct message topicMessage;
+    topicMessage.mtype = CR_TOPIC;
+    topicMessage.id = client_q;
+    strcpy(topicMessage.topicname, topicname);
+    messageSend(server_q, &topicMessage);
+    messageReceive(client_q, &topicMessage, CR_TOPIC);
+    return topicMessage.id == SR_ERR;
+}
+
+char* parseInput(char* input, int* parsedInt) {
+    char* spacePosition = strchr(input, ' ');
+    char* output;
+    if(spacePosition != NULL) {
+        size_t wordLength = spacePosition - input;
+        output = (char*)malloc(wordLength + 1);
+        strncpy(output, input, wordLength);
+        (output)[wordLength] = '\0'; 
+        if(*(spacePosition + 1) != '\0') {
+            *parsedInt = atoi(spacePosition + 1);
+        } else {
+            *parsedInt = -1;
+        }
+    } else {
+        output = input;
+        *parsedInt = -1;
+    }
+    return output;
+}
+
+
 int main() {
     int server_q = msgget(SERVER_KEY, IPC_CREAT | 0666); // czy klient powinien tworzyć czy tu ma być błont, czy ma czekać czy co?
     int client_q = msgget(getpid() + 10000, IPC_CREAT | 0666);
@@ -107,6 +138,7 @@ int main() {
 
     char* topic = (char*) malloc(sizeof(char) * MAX_TOPIC_LENGTH);
     struct messageLogBuffer* messageLogBuffer = createMessageLogBuffer();
+    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "Type /help to get some help."));
     struct threadData* data = createThreadData();
     pthread_t inputThreadId;
 
@@ -120,10 +152,9 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    int duration;
     struct message msg;
     while (1) {
-        displayUI(messageLogBuffer, data, topic);
+        displayUI(messageLogBuffer, data, topic, username);
 
         if (msgrcv(client_q, &msg, sizeof(struct message), -CR_TEXTMSG, IPC_NOWAIT) != -1) {
             char* header = (char*) malloc(sizeof(char) * (USERNAME_LEN + 1 + TOPIC_LEN));
@@ -147,6 +178,9 @@ int main() {
                     else if(isAlnumOnly(data->inputBuffer + 7, argLen)){
                         addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "invalid arguent"));
                     }
+                    else if(checkTopic(server_q, client_q, data->inputBuffer + 7)){
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "this topic does not exist"));
+                    }
                     else{
                         strcpy(topic, data->inputBuffer + 7);
                     }
@@ -167,6 +201,8 @@ int main() {
                             addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "topic with this name already exists"));
                         }
                     }
+                } else if(strncmp(data->inputBuffer, "/topiclist", 10) == 0) {
+                    display_topiclist(client_q, server_q, messageLogBuffer);
                 }
                 else if(strncmp(data->inputBuffer, "/help", 5) == 0) {
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topic [topic name]        switches the topic"));
@@ -174,6 +210,7 @@ int main() {
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topiclist                 displays list of currenty topics"));
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/sub [topic name] [type]   creates an subscription"));
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/unsub [topic name]        deletes subscription if one exists"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/mute [username]           mutes user based on username"));
                 }
                 else if(strncmp(data->inputBuffer, "/sub ", 5) == 0) {
                     int argLen = strlen(data->inputBuffer + 5);
@@ -183,29 +220,19 @@ int main() {
                     else if(argLen > MAX_TOPIC_LENGTH){
                         addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "too long"));
                     }
-                    else if(isAlnumOnly(data->inputBuffer + 5, argLen)){
-                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "invalid arguent"));
-                    }
                     else{
-                        struct message msg;
-                        msg.mtype = CR_ADD_SUB;
-                        msg.id = client_q;
-                        strcpy(msg.topicname, data->inputBuffer + 5);
-                        argLen = strlen(data->inputBuffer + 5 + argLen);
-                        int arg = atoi(data->inputBuffer + 5 + argLen);
-                        if(argLen == 0){
-                            duration = -1;
-                        } else if(arg <= 0) {
-                            addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "invalid argument: duration has to be a positive number"));
-                        } else {
-                            duration = arg;
+                        int duration = -1;
+                        char* topicName = parseInput(data->inputBuffer + 5, &duration);
+                        if(duration <= 0 && duration != -1){
+                            addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "sub duration has to be a positive number"));
                         }
-                        
-                        msg.cnt = duration;
-                        msgsnd(server_q, &msg, sizeof(struct message) - sizeof(long), 0);
-                        msgrcv(client_q, &msg, sizeof(struct message) - sizeof(long), CR_ADD_SUB, 0);
-                        if(msg.id == SR_ERR) {
-                            addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", msg.text));
+                        else{
+                            struct message msg = subscribe_modify(client_q, server_q, topicName, duration);
+                            if(msg.id == SR_ERR) {
+                                addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", msg.text));
+                            } else {
+                                addMessageToBuffer(messageLogBuffer, createMessageEntry("INFO", "subscription sucessfully added"));
+                            }
                         }
                     }
                 }
@@ -221,7 +248,11 @@ int main() {
                         addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "invalid arguent"));
                     }
                     else{
-                        topic = strcpy(topic, data->inputBuffer + 7);
+                        if(unsubscribe(client_q, server_q, data->inputBuffer + 7) == SR_ERR) {
+                            addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "error cancelling subscription"));
+                        } else {
+                            addMessageToBuffer(messageLogBuffer, createMessageEntry("INFO", "topic subscribtion cancelled"));
+                        }
                     }
                 }
                 else if(strncmp(data->inputBuffer, "/mute ", 6) == 0){

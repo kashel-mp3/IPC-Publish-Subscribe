@@ -43,4 +43,4 @@ void deleteThreadData(struct threadData* data);
 void* inputThreadFunction(void* _data);
 void setNonBlockingMode();
 void resetNonBlockingMode();
-void displayUI(struct messageLogBuffer* MLB, struct threadData* data, char* topic);
+void displayUI(struct messageLogBuffer* MLB, struct threadData* data, char* topic, char* username);
