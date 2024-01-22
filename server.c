@@ -69,19 +69,19 @@ int add_client(struct ClientLinkedList* list, int id, const char* username) {
 
 void delete_client(struct ClientLinkedList* list, int id) {
     struct Client* client = find_client_by_id(list, id);
-    if(client) {
-        if(client->next) {
-            client->next->prev = client->prev;
-        } else {
-            client->prev->next = NULL;
-            list->tail = client->prev;
-
-        }
-        if(client->prev) {
-            client->prev->next = client->next;
-        } else {
-            client->next->prev = NULL;
+    if (client) {
+        if (client == list->head && client == list->tail) {
+            list->head = NULL;
+            list->tail = NULL;
+        } else if (client == list->head) {
             list->head = client->next;
+            client->next->prev = NULL;
+        } else if (client == list->tail) {
+            list->tail = client->prev;
+            client->prev->next = NULL;
+        } else {
+            client->prev->next = client->next;
+            client->next->prev = client->prev;
         }
         free(client);
     }
@@ -158,42 +158,42 @@ int add_modify_sub(struct TopicLinkedList* topic_list, const char* name, struct 
 }
 
 void delete_topic(struct Topic* topic, struct TopicLinkedList* list) {
-    if(topic) {
-        if(topic->next != NULL) {
-            topic->next->prev = topic->prev;
-        } else {
-            topic->prev->next = NULL;
-            list->tail = topic->prev;
-
-        }
-        if(topic->prev != NULL) {
-            topic->prev->next = topic->next;
-        } else {
-            topic->next->prev = NULL;
+    if (topic) {
+        if (topic == list->head && topic == list->tail) {
+            list->head = NULL;
+            list->tail = NULL;
+        } else if (topic == list->head) {
             list->head = topic->next;
+            topic->next->prev = NULL;
+        } else if (topic == list->tail) {
+            list->tail = topic->prev;
+            topic->prev->next = NULL;
+        } else {
+            topic->prev->next = topic->next;
+            topic->next->prev = topic->prev;
         }
         free(topic);
     }
 }
 
 void delete_sub(struct TopicLinkedList* topic_list, struct Topic* topic, struct Sub* sub) {
-    if(sub) {
-        if(sub->next != NULL) {
-            sub->next->prev = sub->prev;
-        } else {
-            sub->prev->next = NULL;
-            topic->subscribers->tail = sub->prev;
-
-        }
-        if(sub->prev != NULL) {
-            sub->prev->next = sub->next;
-        } else {
-            sub->next->prev = NULL;
+    if (sub) {
+        if (sub == topic->subscribers->head && sub == topic->subscribers->tail) {
+            topic->subscribers->head = NULL;
+            topic->subscribers->tail = NULL;
+        } else if (sub == topic->subscribers->head) {
             topic->subscribers->head = sub->next;
+            sub->next->prev = NULL;
+        } else if (sub == topic->subscribers->tail) {
+            topic->subscribers->tail = sub->prev;
+            sub->prev->next = NULL;
+        } else {
+            sub->prev->next = sub->next;
+            sub->next->prev = sub->prev;
         }
         free(sub);
     }
-    if(topic->subscribers->head == NULL && topic->subscribers->tail == NULL) {
+    if (topic->subscribers->head == NULL && topic->subscribers->tail == NULL) {
         delete_topic(topic, topic_list);
     }
 }
