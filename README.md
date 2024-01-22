@@ -6,6 +6,6 @@ gcc -o server server.c -Wall
 gcc -o client client.c ui.c -Wall
 ```
 Opis plików:
-client.c - implementacja całej logiki działania klienta
-ui.c - implementacja interfeksu użytkownika klienta
-server.c - implementacja całej logiki działania serwera
+- client.c - implementacja całej logiki działania klienta
+- ui.c - implementacja interfeksu użytkownika klienta
+- server.c - implementacja całej logiki działania serwera
