@@ -290,6 +290,7 @@ struct Topic* create_topic(int id, const char* name, struct TopicLinkedList* top
     struct SubsLinkedList* subs_list = subs_linked_list(id, client_list);
     strcpy(new_topic->name, name);
     new_topic->subscribers = subs_list;
+    new_topic->announcementLogBuffer = announcementsBuffer();
     new_topic->prev = NULL;
     new_topic->next = NULL;
     return new_topic;
@@ -427,6 +428,39 @@ int send_info_about_new_topic(struct ClientLinkedList* client_list, const char* 
         current = current->next;
     }
     return 0;
+}
+
+int announcementCompare(const void* _msg1, const void* _msg2){
+    const struct message *msg1 = *(const struct message **)_msg1;
+    const struct message *msg2 = *(const struct message **)_msg2;
+    if(msg1 == NULL && msg2 == NULL) return 0;
+    if(msg1 == NULL) return 1;
+    if(msg2 == NULL) return -1;
+    return msg2->priority - msg1->priority;
+}
+
+struct message** announcementsBuffer(){
+    struct message** announcementsLogBuffer = (struct message**) malloc(sizeof(struct message*) * (MAX_MESSAGES + 1));
+    for(int i = 0; i <= MAX_MESSAGES; ++i){
+        announcementsLogBuffer[i] = NULL;
+    }
+    return announcementsLogBuffer;
+}
+
+void addAnnouncement(struct message** announcementLogBuffer, struct message* msg){
+    if(announcementLogBuffer[MAX_MESSAGES] != NULL){
+        free(announcementLogBuffer[MAX_MESSAGES]);
+    }
+    announcementLogBuffer[MAX_MESSAGES] = msg;
+    qsort(announcementLogBuffer, MAX_MESSAGES + 1, sizeof(struct message*), announcementCompare);
+    //TODO powiadomienie o nowym ogłoszeniu
+}
+
+void sendAnnouncements(struct message** announcementLogBuffer, int clientId){
+    for(int i = MAX_MESSAGES - 1; i >= 0; --i){
+        if(announcementLogBuffer[i] != NULL)
+            msgsnd(clientId, announcementLogBuffer[i], sizeof(struct message) - sizeof(long), 0);
+    }
 }
 
 int main() {
@@ -592,6 +626,31 @@ int main() {
                 else{
                     response.id = SR_ERR;
                 }
+                break;
+            case CR_ADD_ANC:
+                response.mtype = CR_ADD_ANC;
+                struct Topic* topic4 = find_topic_by_name(active_topics, msg.topicname);
+                if(topic4 == NULL){
+                    break;
+                }
+                response.id = SR_OK;
+                strcpy(response.text, "announcement successfully posted");
+                struct message* newAnnouncement = (struct message*) malloc(sizeof(struct message));
+                newAnnouncement->mtype = SR_TEXTMSG;
+                newAnnouncement->priority = msg.priority;
+                strcpy(newAnnouncement->username, "ANNOUNCEMENT");
+                strcpy(newAnnouncement->topicname, msg.topicname);
+                strcpy(newAnnouncement->text, msg.text);
+                addAnnouncement(topic4->announcementLogBuffer, newAnnouncement);
+                //TODO informacja o nowym ogłoszeniu
+                break;
+            case CR_REQ_ANC:
+                struct Topic* topic3 = find_topic_by_name(active_topics, msg.topicname);
+                if(topic3 == NULL){
+                    break;
+                }
+                sendAnnouncements(topic3->announcementLogBuffer, msg.id);
+                continue;
                 break;
         }
         msgsnd(msg.id, &response, sizeof(struct message) - sizeof(long), 0);

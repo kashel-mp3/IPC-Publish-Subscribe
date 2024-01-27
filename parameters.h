@@ -1,6 +1,6 @@
 #pragma once
 
-#define USERNAME_LEN 10 
+#define USERNAME_LEN 14
 #define TOPIC_LEN 30
 #define TOPIC_CNT 20
 #define MAX_CLIENTS 100

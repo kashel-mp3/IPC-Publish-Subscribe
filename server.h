@@ -43,6 +43,7 @@ struct Topic {
     int id;
     char name[TOPIC_LEN];
     struct SubsLinkedList* subscribers;
+    struct message** announcementLogBuffer;
     struct Topic* prev;
     struct Topic* next;
 };
@@ -83,3 +84,8 @@ struct Topic* find_topic_by_id(struct TopicLinkedList* list, int id);
 int add_topic(struct TopicLinkedList* topic_list, const char* name, struct ClientLinkedList* client_list, int client_id); 
 void delete_topic(struct Topic* topic, struct TopicLinkedList* list);
 void free_topic_linked_list(struct TopicLinkedList* list);
+
+int announcementCompare(const void *msg1, const void *msg2);
+struct message** announcementsBuffer();
+void addAnnouncement(struct message** announcementLogBuffer, struct message* msg);
+void sendAnnouncements(struct message** announcementLogBuffer, int clientId);
