@@ -139,7 +139,7 @@ int main() {
                 else if(strncmp(data->inputBuffer, "/topiclist", 10) == 0) {
                     display_topiclist(client_q, server_q, messageLogBuffer);
                 } 
-                else if(strncmp(data->inputBuffer, "/announcement", 13) == 0) { //new
+                else if(strncmp(data->inputBuffer, "/announcements", 14) == 0) { //new
                     struct messageEntry* entry = (struct messageEntry*) malloc(sizeof(struct messageEntry));
                     loadAnnouncments(client_q, server_q, topic);
                 } 
@@ -165,13 +165,16 @@ int main() {
                     }
                 }
                 else if(strncmp(data->inputBuffer, "/help", 5) == 0) {
-                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topic [topic name]        switches the topic"));
-                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/newtopic [topic name]     creates a new topic"));
-                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topiclist                 displays a list of currenty topics"));
-                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/sub [topic name] [type]   creates a subscription"));
-                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/unsub [topic name]        deletes a subscription if one exists"));
-                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/mute [username]           mutes/unmutes user based on username"));
-                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/quit                      exits the program"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topic [topic name]            switches the topic"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/newtopic [topic name]         creates a new topic"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topiclist                     displays a list of currenty topics"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/sub [topic name] [type]       creates a subscription"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/unsub [topic name]            deletes a subscription if one exists"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/announcements                 displays announcements within current topic"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/announce [priority] [msg]     posts message to current topic's announcements"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "                               with provided priority"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/mute [username]               mutes/unmutes user based on username"));
+                    addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/quit                          exits the program"));
                 }
                 else if(strncmp(data->inputBuffer, "/sub ", 5) == 0) {
                     int argLen = strlen(data->inputBuffer + 5);
