@@ -6,6 +6,7 @@ struct message {
     long mtype;
     int id;
     int cnt;
+    int priority;
     char username[USERNAME_LEN];
     char topicname[TOPIC_LEN];
     char topic_id;

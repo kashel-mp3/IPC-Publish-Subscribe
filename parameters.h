@@ -19,6 +19,8 @@
 #define CR_UNSUB 16
 #define CR_MUTE 17
 #define CR_TOPIC 18
+#define CR_REQ_ANC 19
+#define CR_ADD_ANC 20
 
 #define DEFAULT_TOPIC "RANDOM"
 #define UNLIMITED -1

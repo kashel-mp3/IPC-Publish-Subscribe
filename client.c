@@ -12,6 +12,46 @@
 #include <ctype.h>
 #include <unistd.h>
 
+char* parseInput2(char* input, int* parsedInt) {
+    char* spacePosition = strchr(input, ' ');
+    char* output;
+    
+    if(spacePosition != NULL) {
+        *parsedInt = atoi(input);
+        spacePosition++;
+        size_t wordLength = strlen(spacePosition);
+        output = (char*)malloc(wordLength + 1);
+        strcpy(output, spacePosition);
+    } else {
+        output = input;
+        *parsedInt = 0;
+    }
+
+    return output;
+}
+
+struct message postAnnouncement(int client_q , int server_q, char* topic, char* text, int priority) {
+    struct message msg;
+    msg.mtype = CR_ADD_ANC;
+    msg.id = client_q;
+    msg.priority = priority;
+    strcpy(msg.topicname, topic);
+    strcpy(msg.text, text);
+    msgsnd(server_q, &msg, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &msg, sizeof(struct message) - sizeof(long), CR_ADD_ANC, 0);
+    return msg;
+}
+
+struct message loadAnnouncments(int client_q , int server_q, char* topic) {
+    struct message msg;
+    msg.mtype = CR_REQ_ANC;
+    msg.id = client_q;
+    strcpy(msg.topicname, topic);
+    msgsnd(server_q, &msg, sizeof(struct message) - sizeof(long), 0);
+    msgrcv(client_q, &msg, sizeof(struct message) - sizeof(long), CR_REQ_ANC, 0);
+    return msg;
+}
+
 int main() {
     int server_q = msgget(SERVER_KEY, IPC_CREAT | 0666);
     int client_q = msgget(getpid() + 10000, IPC_CREAT | 0666);
@@ -79,7 +119,8 @@ int main() {
                     else{
                         strcpy(topic, data->inputBuffer + 7);
                     }
-                } else if(strncmp(data->inputBuffer, "/newtopic ", 10) == 0) {
+                } 
+                else if(strncmp(data->inputBuffer, "/newtopic ", 10) == 0) {
                     int argLen = strlen(data->inputBuffer + 10);
                     if(argLen == 0){
                         addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "missing argument: topic"));
@@ -96,8 +137,37 @@ int main() {
                             addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "topic with this name already exists"));
                         }
                     }
-                } else if(strncmp(data->inputBuffer, "/topiclist", 10) == 0) {
+                } 
+                else if(strncmp(data->inputBuffer, "/topiclist", 10) == 0) {
                     display_topiclist(client_q, server_q, messageLogBuffer);
+                } 
+                else if(strncmp(data->inputBuffer, "/announcement", 13) == 0) { //new
+                    struct messageEntry* entry = (struct messageEntry*) malloc(sizeof(struct messageEntry));
+                    struct message msg = loadAnnouncments(client_q, server_q, topic);
+                    strcpy(entry->topic, "NEW ANNOUNCEMENTS:");
+                    strcpy(entry->text, msg.text); //???
+                    addMessageToBuffer(messageLogBuffer, entry);
+                } 
+                else if(strncmp(data->inputBuffer, "/announce ", 10) == 0) { //new
+                    int argLen = strlen(data->inputBuffer + 10);
+                    if(argLen == 0){
+                        addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "missing argument: priority"));
+                    }
+                    else {
+                        int priority = 0;
+                        char* announcement = parseInput2(data->inputBuffer + 10, &priority);
+                        if(priority < 0) {
+                            addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", "priority has to be a non-negative number"));
+                        }
+                        else{
+                            struct message msg = postAnnouncement(client_q, server_q, topic, announcement, priority);
+                            if(msg.id == SR_ERR) {
+                                addMessageToBuffer(messageLogBuffer, createMessageEntry("ERROR", msg.text));
+                            } else {
+                                addMessageToBuffer(messageLogBuffer, createMessageEntry("INFO", msg.text));
+                            }
+                        }
+                    }
                 }
                 else if(strncmp(data->inputBuffer, "/help", 5) == 0) {
                     addMessageToBuffer(messageLogBuffer, createMessageEntry("HELP", "/topic [topic name]        switches the topic"));
