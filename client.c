@@ -42,14 +42,12 @@ struct message postAnnouncement(int client_q , int server_q, char* topic, char* 
     return msg;
 }
 
-struct message loadAnnouncments(int client_q , int server_q, char* topic) {
+void loadAnnouncments(int client_q , int server_q, char* topic) {
     struct message msg;
     msg.mtype = CR_REQ_ANC;
     msg.id = client_q;
     strcpy(msg.topicname, topic);
     msgsnd(server_q, &msg, sizeof(struct message) - sizeof(long), 0);
-    msgrcv(client_q, &msg, sizeof(struct message) - sizeof(long), CR_REQ_ANC, 0);
-    return msg;
 }
 
 int main() {
@@ -143,10 +141,7 @@ int main() {
                 } 
                 else if(strncmp(data->inputBuffer, "/announcement", 13) == 0) { //new
                     struct messageEntry* entry = (struct messageEntry*) malloc(sizeof(struct messageEntry));
-                    struct message msg = loadAnnouncments(client_q, server_q, topic);
-                    strcpy(entry->topic, "NEW ANNOUNCEMENTS:");
-                    strcpy(entry->text, msg.text); //???
-                    addMessageToBuffer(messageLogBuffer, entry);
+                    loadAnnouncments(client_q, server_q, topic);
                 } 
                 else if(strncmp(data->inputBuffer, "/announce ", 10) == 0) { //new
                     int argLen = strlen(data->inputBuffer + 10);
